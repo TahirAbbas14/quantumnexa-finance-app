@@ -1614,6 +1614,14 @@ export default function ExpensesPage() {
     try {
       setLoading(true);
       const supabase = createSupabaseClient();
+      
+      if (!supabase) {
+        console.error('Failed to create Supabase client');
+        setError('Database connection failed');
+        setLoading(false);
+        return;
+      }
+      
       let query = supabase
         .from('expenses')
         .select('*')
@@ -1668,6 +1676,9 @@ export default function ExpensesPage() {
   const handleDeleteExpense = async (id: string) => {
     try {
       const supabase = createSupabaseClient();
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
       const { error } = await supabase
         .from('expenses')
         .delete()
@@ -1957,6 +1968,9 @@ function AddExpenseModal({ onClose, onSuccess }: { onClose: () => void; onSucces
       console.log('AddExpenseModal - Expense data to insert:', expenseData);
 
       const supabase = createSupabaseClient();
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
       const { data, error } = await supabase
         .from('expenses')
         .insert([expenseData])
@@ -2145,6 +2159,7 @@ function EditExpenseModal({ expense, onClose, onSuccess }: { expense: Expense; o
       };
 
       const supabase = createSupabaseClient();
+      if (!supabase) throw new Error('Supabase client not initialized');
       const { error } = await supabase
         .from('expenses')
         .update(expenseData)

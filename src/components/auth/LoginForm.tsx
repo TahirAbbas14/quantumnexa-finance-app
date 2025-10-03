@@ -301,15 +301,10 @@ export default function LoginForm() {
     setError('')
 
     try {
-      const { error } = await signIn(email, password)
-      
-      if (error) {
-        setError(error.message)
-      } else {
-        router.push('/dashboard')
-      }
-    } catch {
-      setError('An unexpected error occurred')
+      await signIn(email, password)
+      router.push('/dashboard')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred')
     } finally {
       setLoading(false)
     }

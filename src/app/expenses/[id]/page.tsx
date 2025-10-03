@@ -364,7 +364,7 @@ export default function ExpenseDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const [expense, setExpense] = useState<any>(null);
+  const [expense, setExpense] = useState<Expense | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 

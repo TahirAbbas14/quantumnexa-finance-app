@@ -242,6 +242,12 @@ export default function RecentInvoices() {
 
   const fetchRecentInvoices = async () => {
     try {
+      if (!supabase) {
+        console.error('Supabase client is not available');
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('invoices')
         .select(`
