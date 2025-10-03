@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Client Addition</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Debug Client Addition</h1>
+    <div id="status"></div>
+    <form id="clientForm">
+        <input type="text" id="clientName" placeholder="Client Name" required>
+        <input type="email" id="clientEmail" placeholder="Client Email" required>
+        <button type="submit">Add Client</button>
+    </form>
+    <div id="results"></div>
+
+    <script>
+        const supabaseUrl = 'https://tjlbkajdasjsyqxmgkst.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqbGJrYWpkYXNqc3lxeG1na3N0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzNjY1OTMsImV4cCI6MjA3Mzk0MjU5M30.ZPv6WtJRWGyV4XwhOSJGkhaL3wFxKMBdMT2hvphr7ao';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        
+        async function checkAuth() {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            const statusDiv = document.getElementById('status');
+            
+            if (error) {
+                statusDiv.innerHTML = `<p style="color: red;">Auth Error: ${error.message}</p>`;
+                return null;
+            }
+            
+            if (session) {
+                statusDiv.innerHTML = `<p style="color: green;">Logged in as: ${session.user.email}</p>`;
+                return session.user;
+            } else {
+                statusDiv.innerHTML = `<p style="color: orange;">Not logged in</p>`;
+                return null;
+            }
+        }
+        
+        document.getElementById('clientForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const user = await checkAuth();
+            if (!user) {
+                alert('Please log in first');
+                return;
+            }
+            
+            const name = document.getElementById('clientName').value;
+            const email = document.getElementById('clientEmail').value;
+            
+            console.log('Attempting to add client:', { name, email, user_id: user.id });
+            
+            try {
+                const { data, error } = await supabase
+                    .from('clients')
+                    .insert([{
+                        name: name,
+                        email: email,
+                        user_id: user.id
+                    }]);
+                
+                const resultsDiv = document.getElementById('results');
+                
+                if (error) {
+                    console.error('Supabase error:', error);
+                    resultsDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                } else {
+                    console.log('Success:', data);
+                    resultsDiv.innerHTML = `<p style="color: green;">Client added successfully!</p>`;
+                    document.getElementById('clientForm').reset();
+                }
+            } catch (err) {
+                console.error('Unexpected error:', err);
+                document.getElementById('results').innerHTML = `<p style="color: red;">Unexpected error: ${err.message}</p>`;
+            }
+        });
+        
+        // Check auth status on load
+        checkAuth();
+    </script>
+</body>
+</html>

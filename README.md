@@ -1,36 +1,145 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Quantumnexa Finance App
 
-## Getting Started
+A comprehensive financial management application built with Next.js, TypeScript, and Supabase.
 
-First, run the development server:
+## Features
+
+- 🔐 **Authentication System** - User registration and login with Supabase Auth
+- 📊 **Dashboard & Analytics** - Financial overview with key metrics and charts
+- 👥 **Client Management** - Add, edit, and manage clients
+- 📋 **Project Management** - Create and track projects linked to clients
+- 🧾 **Invoice System** - Generate and manage professional invoices
+- 💰 **Expense Tracking** - Categorized expense management with analytics
+- 📈 **Financial Reports** - Comprehensive analytics and reporting
+- ⚙️ **Settings & Profile** - User profile and application preferences
+
+## Tech Stack
+
+- **Frontend**: Next.js 15, TypeScript, Tailwind CSS
+- **Backend**: Supabase (Database, Auth, Real-time)
+- **UI Components**: Lucide React icons, Recharts for analytics
+- **Styling**: Tailwind CSS with custom components
+
+## Setup Instructions
+
+### 1. Clone and Install Dependencies
+
+```bash
+git clone <your-repo-url>
+cd quantumnexa-finance-app
+npm install
+```
+
+### 2. Set up Supabase
+
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
+2. Create a new project
+3. Go to **Settings** → **API**
+4. Copy your **Project URL** and **anon/public key**
+
+### 3. Configure Environment Variables
+
+Update the `.env.local` file with your Supabase credentials:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-actual-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+### 4. Set up Database Schema
+
+Run the SQL schema in your Supabase SQL editor:
+
+```bash
+# Copy the contents of supabase-schema.sql and run it in Supabase SQL Editor
+```
+
+The schema includes tables for:
+- Users (handled by Supabase Auth)
+- Clients
+- Projects
+- Invoices
+- Expenses
+- Payments
+
+### 5. Start Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/                    # Next.js App Router pages
+│   ├── clients/           # Client management
+│   ├── dashboard/         # Main dashboard
+│   ├── expenses/          # Expense tracking
+│   ├── invoices/          # Invoice management
+│   ├── projects/          # Project management
+│   ├── reports/           # Financial reports
+│   └── settings/          # User settings
+├── components/            # Reusable components
+│   ├── auth/             # Authentication components
+│   ├── dashboard/        # Dashboard components
+│   └── layout/           # Layout components
+├── contexts/             # React contexts
+└── lib/                  # Utilities and configurations
+```
 
-## Learn More
+## Key Features Explained
 
-To learn more about Next.js, take a look at the following resources:
+### Authentication
+- Secure user registration and login
+- Protected routes with middleware
+- Session management with Supabase Auth
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Dashboard
+- Financial overview with key metrics
+- Interactive charts showing revenue vs expenses
+- Recent invoices and quick actions
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Client Management
+- Add and manage client information
+- Search and filter clients
+- Link clients to projects and invoices
 
-## Deploy on Vercel
+### Invoice System
+- Generate professional invoices
+- Track invoice status (Draft, Sent, Paid, Overdue)
+- Payment tracking and history
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Expense Tracking
+- Categorized expense management
+- Monthly and yearly analytics
+- Receipt upload and management
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Reports & Analytics
+- Comprehensive financial reports
+- Profit/loss analysis
+- Client revenue breakdown
+- Customizable date ranges
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Supabase URL Error**: Make sure your `.env.local` file has valid Supabase credentials
+2. **Database Connection**: Ensure your Supabase project is active and the schema is properly set up
+3. **Authentication Issues**: Check that Supabase Auth is enabled in your project settings
+
+### Getting Help
+
+If you encounter issues:
+1. Check the browser console for error messages
+2. Verify your Supabase configuration
+3. Ensure all environment variables are properly set
+4. Check that the database schema has been applied
+
+## License
+
+This project is licensed under the MIT License.
