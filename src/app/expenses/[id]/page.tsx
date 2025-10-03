@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import styled from 'styled-components';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseClient } from '@/lib/supabase';
 import { formatPKR } from '@/lib/currency';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -364,18 +364,23 @@ export default function ExpenseDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const [expense, setExpense] = useState<Expense | null>(null);
+  const [expense, setExpense] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (user && params.id) {
+    if (user?.id) {
       fetchExpense();
     }
   }, [user, params.id]);
 
   const fetchExpense = async () => {
     try {
+      const supabase = createSupabaseClient();
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
+      
       const { data, error } = await supabase
         .from('expenses')
         .select(`
@@ -403,9 +408,12 @@ export default function ExpenseDetailPage() {
   };
 
   const deleteExpense = async () => {
-    if (!confirm('Are you sure you want to delete this expense?')) return;
-    
     try {
+      const supabase = createSupabaseClient();
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
+      
       const { error } = await supabase
         .from('expenses')
         .delete()
@@ -434,12 +442,13 @@ export default function ExpenseDetailPage() {
     return (
       <DashboardLayout>
         <Container>
-          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-            <h2 style={{ color: 'white', marginBottom: '16px' }}>Expense Not Found</h2>
-            <p style={{ color: 'rgba(255, 255, 255, 0.7)', marginBottom: '32px' }}>
-              {error || 'The expense you\'re looking for doesn\'t exist or you don\'t have permission to view it.'}
+          <div style={{ textAlign: 'center', padding: '64px 0' }}>
+            <h2 style={{ color: 'white', marginBottom: '16px' }}>Error Loading Expense</h2>
+            <p style={{ color: 'rgba(255, 255, 255, 0.7)', marginBottom: '24px' }}>
+              {error || 'Expense not found'}
             </p>
-            <Button variant="primary" onClick={() => router.push('/expenses')}>
+            <Button onClick={() => router.push('/expenses')}>
+              <ArrowLeft size={20} />
               Back to Expenses
             </Button>
           </div>

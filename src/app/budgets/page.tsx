@@ -332,6 +332,7 @@ export default function BudgetsPage() {
   // Memoize fetch functions to avoid missing dependencies in useEffect
   const fetchBudgets = useCallback(async () => {
     try {
+      if (!supabase) throw new Error('Supabase client is not available');
       const { data, error } = await supabase
         .from('budgets')
         .select(`
@@ -357,6 +358,7 @@ export default function BudgetsPage() {
 
   const fetchSavingsGoals = useCallback(async () => {
     try {
+      if (!supabase) throw new Error('Supabase client is not available');
       const { data, error } = await supabase
         .from('savings_goals')
         .select('*')
@@ -372,6 +374,7 @@ export default function BudgetsPage() {
 
   const fetchBudgetCategories = useCallback(async () => {
     try {
+      if (!supabase) throw new Error('Supabase client is not available');
       const { data, error } = await supabase
         .from('budget_categories')
         .select('*')
@@ -1114,6 +1117,7 @@ function RecentActivity() {
       const supabase = createSupabaseClient();
       
       // Fetch recent budget activities (created, updated budgets)
+      if (!supabase) return;
       const { data: budgetActivities } = await supabase
         .from('budgets')
         .select('id, name, budget_type, created_at, updated_at')
@@ -1122,6 +1126,7 @@ function RecentActivity() {
         .limit(3);
 
       // Fetch recent savings goals activities
+      if (!supabase) return;
       const { data: goalsActivities } = await supabase
         .from('savings_goals')
         .select('id, name, target_amount, current_amount, created_at, updated_at')
@@ -1130,6 +1135,7 @@ function RecentActivity() {
         .limit(2);
 
       // Fetch budget alerts (items with high usage percentage)
+      if (!supabase) return;
       const { data: budgetAlerts } = await supabase
         .from('budget_items')
         .select(`

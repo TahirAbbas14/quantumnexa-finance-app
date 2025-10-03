@@ -215,6 +215,7 @@ export default function AccountDetailPage() {
   // Fix: Memoize fetchAccountDetails and fetchTransactions
   const fetchAccountDetails = useCallback(async () => {
     try {
+      if (!supabase) throw new Error('Supabase client is not initialized');
       const { data, error } = await supabase
         .from('accounts')
         .select('*')
@@ -232,6 +233,7 @@ export default function AccountDetailPage() {
 
   const fetchTransactions = useCallback(async () => {
     try {
+      if (!supabase) throw new Error('Supabase client is not initialized');
       const { data, error } = await supabase
         .from('account_transactions')
         .select('*')
@@ -265,6 +267,7 @@ export default function AccountDetailPage() {
     if (!confirm('Are you sure you want to delete this account? This action cannot be undone.')) return;
 
     try {
+      if (!supabase) throw new Error('Supabase client is not initialized');
       const { error } = await supabase
         .from('accounts')
         .delete()
@@ -281,6 +284,7 @@ export default function AccountDetailPage() {
     if (!account) return;
 
     try {
+      if (!supabase) throw new Error('Supabase client is not initialized');
       const { error } = await supabase
         .from('accounts')
         .update({ is_active: !account.is_active })
@@ -881,6 +885,7 @@ function AddTransactionModal({
       const amount = parseFloat(formData.amount);
       
       // Create transaction
+      if (!supabase) throw new Error('Supabase client is not initialized');
       const { error: transactionError } = await supabase
         .from('account_transactions')
         .insert([{

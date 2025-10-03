@@ -244,6 +244,7 @@ export default function SavingsPage() {
 
   const fetchSavingsGoals = useCallback(async () => {
     try {
+      if (!supabase) throw new Error('Supabase client is not initialized');
       const { data, error } = await supabase
         .from('savings_goals')
         .select('*')
@@ -261,7 +262,7 @@ export default function SavingsPage() {
 
   const fetchRecentTransactions = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from('savings_transactions')
         .select('*')
         .eq('user_id', user?.id)
@@ -616,6 +617,10 @@ function AddSavingsGoalModal({ onClose, onSuccess }: { onClose: () => void; onSu
     setError('');
 
     try {
+      if (!supabase) {
+        setError('Supabase client is not initialized');
+        return;
+      }
       const { error } = await supabase
         .from('savings_goals')
         .insert([{
@@ -783,6 +788,10 @@ function AddTransactionModal({ goal, onClose, onSuccess }: {
     setError('');
 
     try {
+      if (!supabase) {
+        setError('Supabase client is not initialized');
+        return;
+      }
       const { error } = await supabase
         .from('savings_transactions')
         .insert([{

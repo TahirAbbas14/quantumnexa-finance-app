@@ -457,6 +457,9 @@ export default function ClientDetailPage() {
 
       // Fetch client details
       console.log('Fetching client details...');
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
       const { data: clientData, error: clientError } = await supabase
         .from('clients')
         .select('*')
@@ -474,6 +477,9 @@ export default function ClientDetailPage() {
 
       // Fetch invoices
       console.log('Fetching invoices...');
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
       const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices')
         .select('*')
@@ -491,6 +497,9 @@ export default function ClientDetailPage() {
 
       // Fetch projects
       console.log('Fetching projects...');
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
         .select('*')
@@ -510,6 +519,9 @@ export default function ClientDetailPage() {
       console.log('Fetching transactions...');
       console.log('Query parameters:', { clientId, userId: user?.id });
       
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('payments')
         .select(`
@@ -533,6 +545,9 @@ export default function ClientDetailPage() {
       console.log('Transactions data fetched:', transactionsData?.length || 0, 'records');
       
       // Also check if there are any payments at all for this user
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
       const { data: allPayments } = await supabase
         .from('payments')
         .select('*')

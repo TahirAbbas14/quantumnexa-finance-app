@@ -408,7 +408,7 @@ export default function ProfitLossPage() {
 
     try {
       // Fetch revenue data from invoices
-      const { data: invoiceData, error: invoiceError } = await supabase
+      const { data: invoiceData, error: invoiceError } = await supabase!
         .from('invoices')
         .select('amount, status, created_at')
         .eq('user_id', user.id)
@@ -419,7 +419,7 @@ export default function ProfitLossPage() {
       if (invoiceError) throw invoiceError;
 
       // Fetch expense data
-      const { data: expenseData, error: expenseError } = await supabase
+      const { data: expenseData, error: expenseError } = await supabase!
         .from('expenses')
         .select('amount, category, date')
         .eq('user_id', user.id)

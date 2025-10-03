@@ -432,7 +432,7 @@ export default function SettingsPage() {
       setLoading(true)
       
       // Fetch user profile
-      const { data: profileData } = await supabase
+      const { data: profileData } = await supabase!
         .from('profiles')
         .select('*')
         .eq('id', user?.id)
@@ -467,6 +467,9 @@ export default function SettingsPage() {
     try {
       setSaving(true)
       
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized')
+      }
       const { error } = await supabase
         .from('profiles')
         .upsert({
@@ -502,6 +505,10 @@ export default function SettingsPage() {
 
     try {
       setSaving(true)
+      
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized')
+      }
       
       const { error } = await supabase.auth.updateUser({
         password: passwordData.newPassword

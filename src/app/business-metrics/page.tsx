@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import styled from 'styled-components'
 import { 
@@ -441,6 +441,9 @@ export default function BusinessMetricsPage() {
     financialRatios: { currentRatio: 0, quickRatio: 0, debtToEquity: 0, returnOnAssets: 0 }
   });
 
+  // Initialize Supabase client
+  const supabase = createSupabaseClient();
+
   // Date range state
   const [startDate, setStartDate] = useState(format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'));
@@ -454,7 +457,7 @@ export default function BusinessMetricsPage() {
   ];
 
   const fetchBusinessMetrics = useCallback(async () => {
-    if (!user) return;
+    if (!user || !supabase) return;
     
     setLoading(true);
     setError(null);

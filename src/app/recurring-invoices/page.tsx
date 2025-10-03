@@ -428,6 +428,10 @@ export default function RecurringInvoicesPage() {
     try {
       const supabase = createSupabaseClient();
       
+      if (!supabase) {
+        console.error('Supabase client is null');
+        return;
+      }
       const { data, error } = await supabase
         .from('recurring_invoice_templates')
         .select(`
@@ -473,6 +477,10 @@ export default function RecurringInvoicesPage() {
       const supabase = createSupabaseClient();
       
       // Get all templates for the user
+      if (!supabase) {
+        console.error('Supabase client is null');
+        return;
+      }
       const { data: allTemplates, error } = await supabase
         .from('recurring_invoice_templates')
         .select('id, amount, frequency, frequency_interval, next_invoice_date, is_active, created_at')

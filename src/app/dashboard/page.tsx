@@ -404,6 +404,12 @@ export default function DashboardPage() {
       
       const supabase = createSupabaseClient();
       
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        setLoading(false);
+        return;
+      }
+      
       // Fetch all data in parallel
       const [
         { data: invoices, error: invoicesError },
@@ -417,7 +423,7 @@ export default function DashboardPage() {
         { data: savingsTransactions, error: savingsTransactionsError },
         { data: budgetAlerts, error: budgetAlertsError }
       ] = await Promise.all([
-        supabase.from('invoices').select('*').eq('user_id', user?.id),
+        supabase.from('invoices').select('*').eq('user_id', user!.id),
         supabase.from('expenses').select('*').eq('user_id', user?.id),
         supabase.from('projects').select('*').eq('user_id', user?.id),
         supabase.from('clients').select('*').eq('user_id', user?.id),
@@ -719,41 +725,30 @@ export default function DashboardPage() {
                   </ActivityAmount>
                 </ActivityItem>
               ))}
-              <div style={{ marginTop: '16px', textAlign: 'center' }}>
-                <Button 
-                  variant="outline" 
-                  onClick={() => router.push('/activity')}
-                  style={{ 
-                    width: '100%',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    color: 'white'
-                  }}
-                >
-                  <Activity size={16} style={{ marginRight: '8px' }} />
-                  See All Transactions
-                </Button>
-              </div>
+              {(!stats?.recentTransactions || stats.recentTransactions.length === 0) && (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '40px 20px', 
+                  color: 'var(--gray-400)' 
+                }}>
+                  <Activity size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+                  <p>No recent activity to display</p>
+                </div>
+              )}
             </Card.Content>
           </Card>
 
           <Card variant="glass" padding="lg">
             <Card.Header>
               <h3>Quick Actions</h3>
-              <p>Frequently used features</p>
+              <p>Common tasks and shortcuts</p>
             </Card.Header>
             <Card.Content>
               <QuickActions>
                 <ActionCard 
-                  variant="default" 
-                  padding="sm" 
-                  hover 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('New Invoice clicked');
-                    router.push('/invoices');
-                  }}
+                  variant="glass" 
+                  padding="md"
+                  onClick={() => router.push('/invoices/new')}
                 >
                   <div className="icon">
                     <Plus size={24} />
@@ -761,59 +756,41 @@ export default function DashboardPage() {
                   <h3>New Invoice</h3>
                   <p>Create invoice</p>
                 </ActionCard>
-                
+
                 <ActionCard 
-                  variant="default" 
-                  padding="sm" 
-                  hover 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Record Expense clicked');
-                    router.push('/expenses');
-                  }}
+                  variant="glass" 
+                  padding="md"
+                  onClick={() => router.push('/expenses/new')}
                 >
                   <div className="icon">
-                    <DollarSign size={24} />
+                    <CreditCard size={24} />
                   </div>
-                  <h3>Record Expense</h3>
-                  <p>Track spending</p>
+                  <h3>Add Expense</h3>
+                  <p>Record expense</p>
                 </ActionCard>
-                
+
                 <ActionCard 
-                  variant="default" 
-                  padding="sm" 
-                  hover 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('New Project clicked');
-                    router.push('/projects');
-                  }}
-                >
-                  <div className="icon">
-                    <Calendar size={24} />
-                  </div>
-                  <h3>New Project</h3>
-                  <p>Start project</p>
-                </ActionCard>
-                
-                <ActionCard 
-                  variant="default" 
-                  padding="sm" 
-                  hover 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Add Client clicked');
-                    router.push('/clients');
-                  }}
+                  variant="glass" 
+                  padding="md"
+                  onClick={() => router.push('/clients/new')}
                 >
                   <div className="icon">
                     <Users size={24} />
                   </div>
-                  <h3>Add Client</h3>
-                  <p>New client</p>
+                  <h3>New Client</h3>
+                  <p>Add client</p>
+                </ActionCard>
+
+                <ActionCard 
+                  variant="glass" 
+                  padding="md"
+                  onClick={() => router.push('/projects/new')}
+                >
+                  <div className="icon">
+                    <FileText size={24} />
+                  </div>
+                  <h3>New Project</h3>
+                  <p>Start project</p>
                 </ActionCard>
               </QuickActions>
             </Card.Content>

@@ -270,6 +270,10 @@ export default function AccountsPage() {
 
   const fetchAccounts = useCallback(async () => {
     try {
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized')
+      }
+      
       const { data, error } = await supabase
         .from('accounts')
         .select('*')
@@ -283,10 +287,14 @@ export default function AccountsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, supabase]);
+  }, [user?.id]);
 
   const fetchRecentTransactions = useCallback(async () => {
     try {
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized')
+      }
+      
       const { data, error } = await supabase
         .from('account_transactions')
         .select(`
@@ -311,6 +319,10 @@ export default function AccountsPage() {
     if (!confirm('Are you sure you want to delete this account? This action cannot be undone.')) return;
 
     try {
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized')
+      }
+      
       const { error } = await supabase
         .from('accounts')
         .delete()
@@ -325,6 +337,10 @@ export default function AccountsPage() {
 
   const toggleAccountStatus = async (id: string, currentStatus: boolean) => {
     try {
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized')
+      }
+      
       const { error } = await supabase
         .from('accounts')
         .update({ is_active: !currentStatus })
@@ -698,6 +714,10 @@ function AddAccountModal({
     setError('');
 
     try {
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized')
+      }
+      
       const accountData = {
         name: formData.name,
         type: formData.type,
@@ -899,6 +919,10 @@ function TransferModal({
     }
 
     try {
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized')
+      }
+      
       const amount = parseFloat(formData.amount);
       
       // Create transfer transactions

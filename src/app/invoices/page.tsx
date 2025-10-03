@@ -1433,6 +1433,7 @@ export default function InvoicesPage() {
     }
 
     try {
+      if (!supabase) throw new Error('Supabase client not initialized');
       const { data, error } = await supabase
         .from('invoices')
         .select(`
@@ -1478,6 +1479,7 @@ export default function InvoicesPage() {
 
     try {
       console.log('Fetching clients for user:', user.id);
+      if (!supabase) throw new Error('Supabase client not initialized');
       const { data, error } = await supabase
         .from('clients')
         .select('*')
@@ -1504,6 +1506,8 @@ export default function InvoicesPage() {
 
     try {
       console.log('Fetching projects for user:', user.id);
+      const supabase = createSupabaseClient();
+      if (!supabase) throw new Error('Supabase client not initialized');
       const { data, error } = await supabase
         .from('projects')
         .select('*, clients (name)')
@@ -1526,6 +1530,9 @@ export default function InvoicesPage() {
     if (!confirm('Are you sure you want to delete this invoice?')) return;
     
     try {
+      if (!supabase) {
+        throw new Error('Supabase client is not available');
+      }
       const { error } = await supabase
         .from('invoices')
         .delete()
@@ -1843,6 +1850,9 @@ function AddInvoiceModal({
         user_id: user?.id
       };
 
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
       const { error } = await supabase
         .from('invoices')
         .insert([invoiceData]);

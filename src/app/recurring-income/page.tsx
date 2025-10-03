@@ -519,6 +519,10 @@ export default function RecurringIncomePage() {
     try {
       const supabase = createSupabaseClient();
       
+      if (!supabase) {
+        console.error('Supabase client is null');
+        return;
+      }
       const { data, error } = await supabase
         .from('recurring_income')
         .select(`
@@ -574,6 +578,7 @@ export default function RecurringIncomePage() {
       const supabase = createSupabaseClient();
       
       // Get all active recurring income for the user
+      if (!supabase) return;
       const { data: allIncomes, error } = await supabase
         .from('recurring_income')
         .select('id, amount, frequency, next_payment_date, is_active')

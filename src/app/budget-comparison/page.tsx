@@ -374,6 +374,8 @@ export default function BudgetComparisonPage() {
   }, [selectedBudget, budgetItems, expenses, selectedDate, calculateComparison]);
 
   const fetchBudgets = async () => {
+    if (!supabase) return;
+    
     const { data, error } = await supabase
       .from('budgets')
       .select('*')
@@ -385,6 +387,8 @@ export default function BudgetComparisonPage() {
   };
 
   const fetchBudgetItems = async () => {
+    if (!supabase) return;
+    
     const { data, error } = await supabase
       .from('budget_items')
       .select(`
@@ -404,6 +408,8 @@ export default function BudgetComparisonPage() {
   };
 
   const fetchExpenses = async () => {
+    if (!supabase) return;
+    
     const startDate = startOfMonth(selectedDate);
     const endDate = endOfMonth(selectedDate);
     

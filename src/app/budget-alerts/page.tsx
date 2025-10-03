@@ -308,6 +308,8 @@ export default function BudgetAlertsPage() {
   }, [user, fetchData]);
 
   const fetchAlerts = async () => {
+    if (!supabase) return;
+    
     const { data, error } = await supabase
       .from('budget_alerts')
       .select(`
@@ -330,6 +332,8 @@ export default function BudgetAlertsPage() {
   };
 
   const fetchSettings = async () => {
+    if (!supabase) return;
+    
     const { data, error } = await supabase
       .from('alert_settings')
       .select('*')
@@ -350,6 +354,8 @@ export default function BudgetAlertsPage() {
   };
 
   const createDefaultSettings = async () => {
+    if (!supabase) return;
+    
     const defaultSettings = {
       user_id: user?.id,
       email_notifications: true,
@@ -377,7 +383,7 @@ export default function BudgetAlertsPage() {
   };
 
   const updateSettings = async (newSettings: Partial<AlertSettings>) => {
-    if (!settings) return;
+    if (!settings || !supabase) return;
 
     const { data, error } = await supabase
       .from('alert_settings')
@@ -395,6 +401,8 @@ export default function BudgetAlertsPage() {
   };
 
   const acknowledgeAlert = async (alertId: string) => {
+    if (!supabase) return;
+    
     const { error } = await supabase
       .from('budget_alerts')
       .update({
@@ -412,6 +420,8 @@ export default function BudgetAlertsPage() {
   };
 
   const resolveAlert = async (alertId: string) => {
+    if (!supabase) return;
+    
     const { error } = await supabase
       .from('budget_alerts')
       .update({
@@ -429,6 +439,8 @@ export default function BudgetAlertsPage() {
   };
 
   const deleteAlert = async (alertId: string) => {
+    if (!supabase) return;
+    
     const { error } = await supabase
       .from('budget_alerts')
       .delete()

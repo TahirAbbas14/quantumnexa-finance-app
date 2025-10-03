@@ -547,6 +547,10 @@ export default function PaymentRemindersPage() {
     try {
       const supabase = createSupabaseClient();
       
+      if (!supabase) {
+        console.error('Supabase client is null');
+        return;
+      }
       const { data, error } = await supabase
         .from('payment_reminders')
         .select(`
@@ -604,7 +608,7 @@ export default function PaymentRemindersPage() {
       const supabase = createSupabaseClient();
       
       // Get all reminders for the user
-      const { data: allReminders, error } = await supabase
+      const { data: allReminders, error } = await supabase!
         .from('payment_reminders')
         .select('id, status, due_date, created_at')
         .eq('user_id', user?.id ?? '');

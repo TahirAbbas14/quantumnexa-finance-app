@@ -691,7 +691,7 @@ export default function InvoiceDetailPage() {
       console.log('Invoice ID type:', typeof params.id);
       console.log('User ID type:', typeof user?.id);
       
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from('invoices')
         .select(`
           *,
@@ -743,6 +743,9 @@ export default function InvoiceDetailPage() {
 
   const fetchPayments = async () => {
     try {
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
       const { data, error } = await supabase
         .from('payments')
         .select('*')
@@ -771,6 +774,10 @@ export default function InvoiceDetailPage() {
     if (!invoice) return;
     
     try {
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return;
+      }
       const { error } = await supabase
         .from('invoices')
         .update({ status: newStatus })
@@ -1131,6 +1138,10 @@ function AddPaymentModal({
         user_id: user?.id
       };
 
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return;
+      }
       const { error } = await supabase
         .from('payments')
         .insert([paymentData]);

@@ -513,7 +513,7 @@ export default function SubscriptionsPage() {
     try {
       const supabase = createSupabaseClient();
       
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as NonNullable<typeof supabase>)
         .from('subscriptions')
         .select(`
           id,
@@ -572,7 +572,7 @@ export default function SubscriptionsPage() {
       const supabase = createSupabaseClient();
       
       // Get all active subscriptions for the user
-      const { data: allSubscriptions, error } = await supabase
+      const { data: allSubscriptions, error } = await (supabase as NonNullable<typeof supabase>)
         .from('subscriptions')
         .select('id, amount, billing_cycle, next_billing_date, is_active')
         .eq('user_id', user?.id)

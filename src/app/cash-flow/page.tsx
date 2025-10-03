@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabase'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import styled from 'styled-components'
 import { 
@@ -446,6 +446,9 @@ export default function CashFlowPage() {
     monthlyData: []
   });
 
+  // Initialize Supabase client
+  const supabase = createSupabaseClient();
+
   // Date range state
   const [startDate, setStartDate] = useState(format(startOfMonth(subMonths(new Date(), 5)), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -459,7 +462,7 @@ export default function CashFlowPage() {
   ];
 
   const fetchCashFlowData = useCallback(async () => {
-    if (!user) return;
+    if (!user || !supabase) return;
     
     setLoading(true);
     setError(null);
@@ -576,7 +579,9 @@ export default function CashFlowPage() {
   }, [user, startDate, endDate]);
 
   useEffect(() => {
-    fetchCashFlowData();
+    if (fetchCashFlowData) {
+      fetchCashFlowData();
+    }
   }, [fetchCashFlowData]);
 
   const handleQuickDateSelect = (option: typeof quickDateOptions[0]) => {

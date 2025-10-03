@@ -1264,7 +1264,11 @@ export default function ClientsPage() {
 
   const fetchClients = useCallback(async () => {
     try {
+      // supabase client is already declared above; reuse it instead of re-declaring
       const supabase = createSupabaseClient();
+      if (!supabase) {
+        throw new Error('Supabase client could not be initialized');
+      }
       const { data, error } = await supabase
         .from('clients')
         .select('*')
@@ -1285,6 +1289,7 @@ export default function ClientsPage() {
 
     try {
       const supabase = createSupabaseClient();
+      if (!supabase) throw new Error('Supabase client is not initialized');
       const { error } = await supabase
         .from('clients')
         .delete()
@@ -1528,6 +1533,9 @@ function EditClientModal({ client, onClose, onSuccess }: { client: Client; onClo
     try {
       console.log('Updating client data:', { ...formData, id: client.id });
       
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
       const { error } = await supabase
         .from('clients')
         .update(formData)
@@ -1714,6 +1722,10 @@ function AddClientModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
 
     try {
       console.log('Submitting client data:', { ...formData, user_id: user.id });
+      
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
       
       const { error } = await supabase
         .from('clients')

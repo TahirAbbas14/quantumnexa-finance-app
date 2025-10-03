@@ -325,7 +325,7 @@ export default function ReportsPage() {
       const startDate = startOfMonth(subMonths(new Date(), months - 1))
       
       // Fetch invoices for revenue data
-      const { data: invoices } = await supabase
+      const { data: invoices } = await supabase!
         .from('invoices')
         .select(`
           *,
@@ -336,7 +336,7 @@ export default function ReportsPage() {
         .eq('status', 'paid')
 
       // Fetch expenses
-      const { data: expenses } = await supabase
+      const { data: expenses } = await supabase!
         .from('expenses')
         .select('*')
         .eq('user_id', user?.id)

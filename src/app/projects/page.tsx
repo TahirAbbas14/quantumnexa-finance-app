@@ -838,7 +838,7 @@ export default function ProjectsPage() {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from('projects')
         .select(`
           *,
@@ -869,7 +869,7 @@ export default function ProjectsPage() {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from('clients')
         .select('id, name')
         .eq('user_id', user?.id);
@@ -889,6 +889,11 @@ export default function ProjectsPage() {
     if (!confirm('Are you sure you want to delete this project?')) return;
     
     try {
+      if (!supabase) {
+      console.error('Supabase client is not available');
+        setLoading(false);
+        return;
+      }
       const { error } = await supabase
         .from('projects')
         .delete()
@@ -1168,6 +1173,13 @@ function EditProjectModal({
       };
 
       console.log('Project data to update:', projectData);
+
+      if (!supabase) {
+        console.error('Supabase client is not available');
+        setError('Database connection unavailable. Please refresh and try again.');
+        setLoading(false);
+        return;
+      }
 
       const { error } = await supabase
         .from('projects')
@@ -1449,6 +1461,12 @@ function AddProjectModal({
 
       console.log('Project data to insert:', projectData);
 
+      if (!supabase) {
+        console.error('Supabase client is not available');
+        setError('Supabase client is not available');
+        setLoading(false);
+        return;
+      }
       const { error } = await supabase
         .from('projects')
         .insert([projectData]);

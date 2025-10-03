@@ -265,6 +265,12 @@ export default function ActivityPage() {
 
       const supabase = createSupabaseClient();
       
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        setLoading(false);
+        return;
+      }
+      
       const [
         { data: invoices, error: invoicesError },
         { data: expenses, error: expensesError },

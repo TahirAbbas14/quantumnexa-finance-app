@@ -1,37 +1,46 @@
-import { createSupabaseClient } from './supabase'
-import { User } from '@supabase/supabase-js'
+import { supabase } from './supabase'
 
 export async function signIn(email: string, password: string) {
-  const supabase = createSupabaseClient()
+  if (!supabase) {
+    throw new Error('Supabase client is not initialized')
+  }
   
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
-  return { data, error }
+  if (error) throw error
+  return data
 }
 
 export async function signOut() {
-  const supabase = createSupabaseClient()
+  if (!supabase) {
+    throw new Error('Supabase client is not initialized')
+  }
   
   const { error } = await supabase.auth.signOut()
-  return { error }
+  if (error) throw error
 }
 
-export async function getCurrentUser(): Promise<User | null> {
-  const supabase = createSupabaseClient()
+export async function getCurrentUser() {
+  if (!supabase) {
+    return null
+  }
   
   const { data: { user } } = await supabase.auth.getUser()
   return user
 }
 
 export async function resetPassword(email: string) {
-  const supabase = createSupabaseClient()
+  if (!supabase) {
+    throw new Error('Supabase client is not initialized')
+  }
   
   const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/reset-password`,
   })
 
-  return { data, error }
+  if (error) throw error
+  return data
 }

@@ -294,6 +294,9 @@ export default function InvoiceEditPage() {
   const fetchInvoice = async () => {
     try {
       const supabase = createSupabaseClient();
+      if (!supabase) {
+        throw new Error('Supabase client is not available');
+      }
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
@@ -330,6 +333,7 @@ export default function InvoiceEditPage() {
   const fetchClients = async () => {
     try {
       const supabase = createSupabaseClient();
+      if (!supabase) throw new Error('Supabase client is not available');
       const { data, error } = await supabase
         .from('clients')
         .select('id, name, email')
@@ -346,6 +350,7 @@ export default function InvoiceEditPage() {
   const fetchProjects = async () => {
     try {
       const supabase = createSupabaseClient();
+      if (!supabase) throw new Error('Supabase client is not available');
       const { data, error } = await supabase
         .from('projects')
         .select('id, name')
@@ -401,6 +406,7 @@ export default function InvoiceEditPage() {
         updated_at: new Date().toISOString()
       };
 
+      if (!supabase) throw new Error('Supabase client is not available');
       const { error } = await supabase
         .from('invoices')
         .update(updateData)

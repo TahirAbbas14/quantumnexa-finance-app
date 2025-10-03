@@ -551,6 +551,9 @@ export default function TaxReportsPage() {
       }
 
       // Fetch income data from invoices
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('invoices')
         .select('amount, status, created_at')
@@ -570,6 +573,7 @@ export default function TaxReportsPage() {
         .lte('date', format(endDate, 'yyyy-MM-dd'));
 
       if (expenseError) throw expenseError;
+
 
       // Calculate income
       const totalIncome = invoiceData?.reduce((sum, invoice) => sum + invoice.amount, 0) || 0;
