@@ -407,16 +407,19 @@ export default function ProfitLossPage() {
     setError(null);
 
     try {
-      // Fetch revenue data from invoices
-      const { data: invoiceData, error: invoiceError } = await supabase!
-        .from('invoices')
-        .select('amount, status, created_at')
-        .eq('user_id', user.id)
-        .eq('status', 'paid')
-        .gte('created_at', startDate)
-        .lte('created_at', endDate);
+      // Fetch revenue data from payments (actual cash inflows)
+      const { data: paymentData, error: paymentError } = await supabase!
+        .from('payments')
+        .select(`
+          amount,
+          payment_date,
+          invoices!inner(user_id)
+        `)
+        .eq('invoices.user_id', user.id)
+        .gte('payment_date', startDate)
+        .lte('payment_date', endDate);
 
-      if (invoiceError) throw invoiceError;
+      if (paymentError) throw paymentError;
 
       // Fetch expense data
       const { data: expenseData, error: expenseError } = await supabase!
@@ -428,8 +431,8 @@ export default function ProfitLossPage() {
 
       if (expenseError) throw expenseError;
 
-      // Calculate revenue
-      const totalRevenue = invoiceData?.reduce((sum, invoice) => sum + invoice.amount, 0) || 0;
+      // Calculate revenue from actual payments
+      const totalRevenue = paymentData?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
 
       // Group expenses by category
       const expensesByCategory = expenseData?.reduce((acc, expense) => {
@@ -447,8 +450,8 @@ export default function ProfitLossPage() {
       if (totalRevenue > 0) {
         plItems.push({
           category: 'revenue',
-          subcategory: 'sales_revenue',
-          lineItem: 'Invoice Revenue',
+          subcategory: 'payment_revenue',
+          lineItem: 'Payment Revenue',
           amount: totalRevenue,
           percentage: 100,
           type: 'revenue'

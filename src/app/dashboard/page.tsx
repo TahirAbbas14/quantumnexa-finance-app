@@ -30,6 +30,7 @@ import {
 interface DashboardStats {
   totalRevenue: number;
   totalExpenses: number;
+  currentBalance: number;
   activeProjects: number;
   totalClients: number;
   pendingInvoices: number;
@@ -451,6 +452,7 @@ export default function DashboardPage() {
       // Calculate stats
       const totalRevenue = invoices?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
       const totalExpenses = expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
+      const currentBalance = totalRevenue - totalExpenses;
       const activeProjects = projects?.filter(p => p.status === 'active').length || 0;
       const totalClients = clients?.length || 0;
       const pendingInvoices = invoices?.filter(inv => inv.status === 'sent').length || 0;
@@ -488,6 +490,7 @@ export default function DashboardPage() {
       setStats({
         totalRevenue,
         totalExpenses,
+        currentBalance,
         activeProjects,
         totalClients,
         pendingInvoices,
@@ -566,6 +569,22 @@ export default function DashboardPage() {
               <p>
                 <TrendingDown size={16} />
                 Total Expenses
+              </p>
+            </StatValue>
+          </StatCard>
+
+          {/* Balance Card */}
+          <StatCard variant="glass" color={(stats?.currentBalance ?? 0) >= 0 ? "var(--success-500)" : "var(--error-500)"}>
+            <StatHeader>
+              <StatIcon $color={(stats?.currentBalance ?? 0) >= 0 ? "var(--success-100)" : "var(--error-100)"}>
+                <DollarSign size={24} />
+              </StatIcon>
+            </StatHeader>
+            <StatValue>
+              <h3>{formatPKR(stats?.currentBalance || 0)}</h3>
+              <p>
+                <DollarSign size={16} />
+                Current Balance
               </p>
             </StatValue>
           </StatCard>
@@ -711,7 +730,7 @@ export default function DashboardPage() {
               <p>Latest transactions and updates</p>
             </Card.Header>
             <Card.Content>
-              {stats?.recentTransactions.map((transaction, index) => (
+              {stats?.recentTransactions.slice(0, 5).map((transaction, index) => (
                 <ActivityItem key={index}>
                   <ActivityIcon $type={transaction.type}>
                     {transaction.type === 'invoice' ? <FileText size={20} /> : <CreditCard size={20} />}
@@ -733,6 +752,24 @@ export default function DashboardPage() {
                 }}>
                   <Activity size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
                   <p>No recent activity to display</p>
+                </div>
+              )}
+              {stats?.recentTransactions && stats.recentTransactions.length > 0 && (
+                <div style={{ marginTop: '16px', textAlign: 'center' }}>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => router.push('/activity')}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      color: 'white',
+                      fontSize: '14px',
+                      padding: '8px 16px'
+                    }}
+                  >
+                    See All Activities
+                  </Button>
                 </div>
               )}
             </Card.Content>

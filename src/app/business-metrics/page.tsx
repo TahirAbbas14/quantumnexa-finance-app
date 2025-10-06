@@ -471,14 +471,14 @@ export default function BusinessMetricsPage() {
       const previousEnd = new Date(currentStart.getTime() - 24 * 60 * 60 * 1000);
 
       // Fetch current period data
-      const [invoicesData, expensesData, clientsData, projectsData] = await Promise.all([
-        // Current period invoices
+      const [paymentsData, expensesData, clientsData, projectsData] = await Promise.all([
+        // Current period payments (for accurate revenue calculation)
         supabase
-          .from('invoices')
-          .select('amount, status, created_at, due_date, client_id')
-          .eq('user_id', user.id)
-          .gte('created_at', startDate)
-          .lte('created_at', endDate),
+          .from('payments')
+          .select('amount, payment_date, invoices!inner(user_id, client_id, due_date)')
+          .eq('invoices.user_id', user.id)
+          .gte('payment_date', startDate)
+          .lte('payment_date', endDate),
         
         // Current period expenses
         supabase
@@ -502,13 +502,13 @@ export default function BusinessMetricsPage() {
       ]);
 
       // Fetch previous period data for comparison
-      const [prevInvoicesData, prevExpensesData] = await Promise.all([
+      const [prevPaymentsData, prevExpensesData] = await Promise.all([
         supabase
-          .from('invoices')
-          .select('amount, status, created_at')
-          .eq('user_id', user.id)
-          .gte('created_at', format(previousStart, 'yyyy-MM-dd'))
-          .lte('created_at', format(previousEnd, 'yyyy-MM-dd')),
+          .from('payments')
+          .select('amount, payment_date, invoices!inner(user_id)')
+          .eq('invoices.user_id', user.id)
+          .gte('payment_date', format(previousStart, 'yyyy-MM-dd'))
+          .lte('payment_date', format(previousEnd, 'yyyy-MM-dd')),
         
         supabase
           .from('expenses')
@@ -518,16 +518,16 @@ export default function BusinessMetricsPage() {
           .lte('date', format(previousEnd, 'yyyy-MM-dd'))
       ]);
 
-      if (invoicesData.error) throw invoicesData.error;
+      if (paymentsData.error) throw paymentsData.error;
       if (expensesData.error) throw expensesData.error;
       if (clientsData.error) throw clientsData.error;
       if (projectsData.error) throw projectsData.error;
-      if (prevInvoicesData.error) throw prevInvoicesData.error;
+      if (prevPaymentsData.error) throw prevPaymentsData.error;
       if (prevExpensesData.error) throw prevExpensesData.error;
 
       // Calculate revenue metrics
-      const currentRevenue = invoicesData.data?.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.amount, 0) || 0;
-      const previousRevenue = prevInvoicesData.data?.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.amount, 0) || 0;
+      const currentRevenue = paymentsData.data?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
+      const previousRevenue = prevPaymentsData.data?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
       const revenueGrowth = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
 
       // Calculate expense metrics
@@ -551,16 +551,16 @@ export default function BusinessMetricsPage() {
       const clientRetention = totalClients > 0 ? Math.max(0, ((totalClients - newClients) / totalClients) * 100) : 0;
 
       // Calculate operational metrics
-      const paidInvoices = invoicesData.data?.filter(inv => inv.status === 'paid') || [];
-      const averageInvoiceValue = paidInvoices.length > 0 ? paidInvoices.reduce((sum, inv) => sum + inv.amount, 0) / paidInvoices.length : 0;
+      const paidPayments = paymentsData.data || [];
+      const averageInvoiceValue = paidPayments.length > 0 ? paidPayments.reduce((sum, payment) => sum + payment.amount, 0) / paidPayments.length : 0;
       
       // Calculate average payment cycle time
-      const paymentCycleTime = paidInvoices.length > 0 ? 
-        paidInvoices.reduce((sum, inv) => {
-          const created = parseISO(inv.created_at);
-          const due = parseISO(inv.due_date);
-          return sum + differenceInDays(due, created);
-        }, 0) / paidInvoices.length : 0;
+      const paymentCycleTime = paidPayments.length > 0 ? 
+        paidPayments.reduce((sum, payment) => {
+          const paymentDate = parseISO(payment.payment_date);
+          const dueDate = parseISO(payment.invoices[0].due_date);
+          return sum + differenceInDays(paymentDate, dueDate);
+        }, 0) / paidPayments.length : 0;
 
       // Calculate project completion rate
       const completedProjects = projectsData.data?.filter(proj => proj.status === 'completed').length || 0;

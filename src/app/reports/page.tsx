@@ -301,6 +301,14 @@ interface ReportData {
 const COLORS = ['#dc2626', '#ef4444', '#f87171', '#fca5a5', '#fecaca', '#fee2e2']
 
 export default function ReportsPage() {
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-PK', {
+      style: 'currency',
+      currency: 'PKR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
   const { user } = useAuth()
   const [reportData, setReportData] = useState<ReportData>({
     monthlyRevenue: [],
@@ -324,16 +332,16 @@ export default function ReportsPage() {
       const months = dateRange === '6months' ? 6 : dateRange === '12months' ? 12 : 3
       const startDate = startOfMonth(subMonths(new Date(), months - 1))
       
-      // Fetch invoices for revenue data
-      const { data: invoices } = await supabase!
-        .from('invoices')
+      // Fetch payments for revenue data (actual cash inflows)
+      const { data: payments } = await supabase!
+        .from('payments')
         .select(`
-          *,
-          clients (name)
+          amount,
+          payment_date,
+          invoices!inner(user_id, clients(name))
         `)
-        .eq('user_id', user?.id)
-        .gte('created_at', startDate.toISOString())
-        .eq('status', 'paid')
+        .eq('invoices.user_id', user?.id)
+        .gte('payment_date', startDate.toISOString())
 
       // Fetch expenses
       const { data: expenses } = await supabase!
@@ -349,9 +357,9 @@ export default function ReportsPage() {
         const monthEnd = endOfMonth(monthStart)
         const monthName = format(monthStart, 'MMM yyyy')
 
-        const monthInvoices = invoices?.filter(inv => {
-          const invDate = new Date(inv.created_at)
-          return invDate >= monthStart && invDate <= monthEnd
+        const monthPayments = payments?.filter(payment => {
+          const paymentDate = new Date(payment.payment_date)
+          return paymentDate >= monthStart && paymentDate <= monthEnd
         }) || []
 
         const monthExpenses = expenses?.filter(exp => {
@@ -359,7 +367,7 @@ export default function ReportsPage() {
           return expDate >= monthStart && expDate <= monthEnd
         }) || []
 
-        const revenue = monthInvoices.reduce((sum, inv) => sum + inv.amount, 0)
+        const revenue = monthPayments.reduce((sum, payment) => sum + payment.amount, 0)
         const expenseAmount = monthExpenses.reduce((sum, exp) => sum + exp.amount, 0)
 
         monthlyData.push({
@@ -385,10 +393,10 @@ export default function ReportsPage() {
 
       // Process client revenue
       const clientMap = new Map()
-      invoices?.forEach(invoice => {
-        const clientName = invoice.clients?.name || 'Unknown Client'
+      payments?.forEach(payment => {
+        const clientName = (payment.invoices as { clients?: { name?: string } })?.clients?.name || 'Unknown Client'
         const current = clientMap.get(clientName) || 0
-        clientMap.set(clientName, current + invoice.amount)
+        clientMap.set(clientName, current + payment.amount)
       })
 
       const clientRevenue = Array.from(clientMap.entries())
@@ -457,7 +465,7 @@ export default function ReportsPage() {
             <StatHeader>
               <StatInfo>
                 <h3>Total Revenue</h3>
-                <p>${totalRevenue.toLocaleString()}</p>
+                <p>{formatCurrency(totalRevenue)}</p>
               </StatInfo>
               <StatIcon bgColor="linear-gradient(135deg, #10b981 0%, #059669 100%)">
                 <DollarSign />
@@ -469,7 +477,7 @@ export default function ReportsPage() {
             <StatHeader>
               <StatInfo>
                 <h3>Total Expenses</h3>
-                <p>${totalExpenses.toLocaleString()}</p>
+                <p>{formatCurrency(totalExpenses)}</p>
               </StatInfo>
               <StatIcon bgColor="linear-gradient(135deg, #ef4444 0%, #dc2626 100%)">
                 <TrendingDown />
@@ -482,7 +490,7 @@ export default function ReportsPage() {
               <StatInfo>
                 <h3>Net Profit</h3>
                 <p style={{ color: totalProfit >= 0 ? '#10b981' : '#ef4444' }}>
-                  ${totalProfit.toLocaleString()}
+                  {formatCurrency(totalProfit)}
                 </p>
               </StatInfo>
               <StatIcon bgColor={totalProfit >= 0 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'}>
@@ -517,7 +525,8 @@ export default function ReportsPage() {
                 <XAxis dataKey="month" stroke="rgba(255,255,255,0.7)" />
                 <YAxis stroke="rgba(255,255,255,0.7)" />
                 <Tooltip 
-                  formatter={(value) => [`$${value.toLocaleString()}`, '']} 
+                  formatter={(value: number) => [`${formatCurrency(value)}`, '']}
+                  labelFormatter={(label) => `Month: ${label}`}
                   contentStyle={{
                     backgroundColor: 'rgba(0,0,0,0.8)',
                     border: '1px solid rgba(220,38,38,0.3)',
@@ -551,7 +560,7 @@ export default function ReportsPage() {
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value) => [`$${value.toLocaleString()}`, 'Amount']} 
+                  formatter={(value: number) => [`${formatCurrency(value)}`, 'Amount']}
                   contentStyle={{
                     backgroundColor: 'rgba(0,0,0,0.8)',
                     border: '1px solid rgba(220,38,38,0.3)',
@@ -572,7 +581,7 @@ export default function ReportsPage() {
                 <XAxis dataKey="month" stroke="rgba(255,255,255,0.7)" />
                 <YAxis stroke="rgba(255,255,255,0.7)" />
                 <Tooltip 
-                  formatter={(value) => [`$${value.toLocaleString()}`, 'Profit']} 
+                  formatter={(value) => [`${formatCurrency(value as number)}`, 'Profit']}
                   contentStyle={{
                     backgroundColor: 'rgba(0,0,0,0.8)',
                     border: '1px solid rgba(220,38,38,0.3)',
@@ -602,7 +611,7 @@ export default function ReportsPage() {
                     <ClientIndicator color={COLORS[index % COLORS.length]} />
                     <ClientName>{client.client}</ClientName>
                   </ClientInfo>
-                  <ClientRevenue>${client.revenue.toLocaleString()}</ClientRevenue>
+                  <ClientRevenue>{formatCurrency(client.revenue)}</ClientRevenue>
                 </ClientItem>
               ))}
             </ClientList>

@@ -468,16 +468,23 @@ export default function CashFlowPage() {
     setError(null);
 
     try {
-      // Fetch invoice payments (cash inflows)
-      const { data: invoiceData, error: invoiceError } = await supabase
-        .from('invoices')
-        .select('amount, status, created_at, due_date')
+      // Fetch actual payment records (cash inflows) - use payment_date instead of invoice created_at
+      const { data: paymentData, error: paymentError } = await supabase
+        .from('payments')
+        .select(`
+          amount,
+          payment_date,
+          invoice_id,
+          invoices!inner(
+            invoice_number,
+            client_id
+          )
+        `)
         .eq('user_id', user.id)
-        .eq('status', 'paid')
-        .gte('created_at', startDate)
-        .lte('created_at', endDate);
+        .gte('payment_date', startDate)
+        .lte('payment_date', endDate);
 
-      if (invoiceError) throw invoiceError;
+      if (paymentError) throw paymentError;
 
       // Fetch expenses (cash outflows)
       const { data: expenseData, error: expenseError } = await supabase
@@ -499,13 +506,13 @@ export default function CashFlowPage() {
         const monthStart = startOfMonth(month);
         const monthEnd = endOfMonth(month);
 
-        // Calculate inflows for this month
-        const monthInflows = invoiceData?.filter(invoice => {
-          const invoiceDate = parseISO(invoice.created_at);
-          return invoiceDate >= monthStart && invoiceDate <= monthEnd;
-        }).reduce((sum, invoice) => sum + invoice.amount, 0) || 0;
+        // Calculate inflows for this month using payment_date
+        const monthInflows = paymentData?.filter(payment => {
+          const paymentDate = parseISO(payment.payment_date);
+          return paymentDate >= monthStart && paymentDate <= monthEnd;
+        }).reduce((sum, payment) => sum + payment.amount, 0) || 0;
 
-        // Calculate outflows for this month
+        // Calculate outflows for this month using expense date
         const monthOutflows = expenseData?.filter(expense => {
           const expenseDate = parseISO(expense.date);
           return expenseDate >= monthStart && expenseDate <= monthEnd;
@@ -522,14 +529,14 @@ export default function CashFlowPage() {
       // Build cash flow data structure
       const cashFlowItems: CashFlowData[] = [];
 
-      // Group inflows
-      invoiceData?.forEach(invoice => {
-        const month = format(parseISO(invoice.created_at), 'MMM yyyy');
+      // Group inflows using payment_date
+      paymentData?.forEach(payment => {
+        const month = format(parseISO(payment.payment_date), 'MMM yyyy');
         cashFlowItems.push({
           category: 'inflow',
           subcategory: 'revenue',
-          lineItem: 'Invoice Payments',
-          amount: invoice.amount,
+          lineItem: 'Payment Received',
+          amount: payment.amount,
           month
         });
       });
