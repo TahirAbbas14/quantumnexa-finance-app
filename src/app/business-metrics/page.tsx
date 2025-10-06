@@ -558,8 +558,13 @@ export default function BusinessMetricsPage() {
       const paymentCycleTime = paidPayments.length > 0 ? 
         paidPayments.reduce((sum, payment) => {
           const paymentDate = parseISO(payment.payment_date);
-          const dueDate = parseISO(payment.invoices[0].due_date);
-          return sum + differenceInDays(paymentDate, dueDate);
+          // Handle the invoices data structure properly - it's an array from the join
+          const invoiceData = payment.invoices[0]; // Get the first (and typically only) invoice
+          if (invoiceData && invoiceData.due_date) {
+            const dueDate = parseISO(invoiceData.due_date);
+            return sum + differenceInDays(paymentDate, dueDate);
+          }
+          return sum; // Skip if no invoice data
         }, 0) / paidPayments.length : 0;
 
       // Calculate project completion rate
