@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createSupabaseClient } from '@/lib/supabase'
+import DashboardLayout from '@/components/layout/DashboardLayout'
 import styled from 'styled-components'
 import { 
   Plus, 
@@ -712,14 +713,17 @@ export default function SubscriptionsPage() {
 
   if (loading) {
     return (
-      <PageContainer>
-        <div>Loading...</div>
-      </PageContainer>
+      <DashboardLayout>
+        <PageContainer>
+          <div>Loading...</div>
+        </PageContainer>
+      </DashboardLayout>
     )
   }
 
   return (
-    <PageContainer id="subscriptions-content">
+    <DashboardLayout>
+      <PageContainer id="subscriptions-content">
       <Header>
         <Title>Subscription Management</Title>
         <ActionButtons>
@@ -941,5 +945,6 @@ export default function SubscriptionsPage() {
         </Sidebar>
       </ContentGrid>
     </PageContainer>
+    </DashboardLayout>
   )
 }

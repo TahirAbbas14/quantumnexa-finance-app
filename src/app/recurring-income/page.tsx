@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createSupabaseClient } from '@/lib/supabase'
+import DashboardLayout from '@/components/layout/DashboardLayout'
 import styled from 'styled-components'
 import { 
   Plus, 
@@ -722,14 +723,17 @@ export default function RecurringIncomePage() {
 
   if (loading) {
     return (
-      <PageContainer>
-        <div>Loading...</div>
-      </PageContainer>
+      <DashboardLayout>
+        <PageContainer>
+          <div>Loading...</div>
+        </PageContainer>
+      </DashboardLayout>
     )
   }
 
   return (
-    <PageContainer id="recurring-income-content">
+    <DashboardLayout>
+      <PageContainer id="recurring-income-content">
       <Header>
         <Title>Recurring Income</Title>
         <ActionButtons>
@@ -963,5 +967,6 @@ export default function RecurringIncomePage() {
         </Sidebar>
       </ContentGrid>
     </PageContainer>
+    </DashboardLayout>
   )
 }

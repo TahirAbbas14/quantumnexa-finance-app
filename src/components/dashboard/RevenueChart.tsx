@@ -2,6 +2,7 @@
 
 import styled from 'styled-components'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { formatPKR } from '@/lib/currency'
 
 const Container = styled.div`
   background: white;
@@ -22,13 +23,13 @@ const ChartContainer = styled.div`
 `
 
 const data = [
-  { month: 'Jan', revenue: 4000, expenses: 2400 },
-  { month: 'Feb', revenue: 3000, expenses: 1398 },
-  { month: 'Mar', revenue: 2000, expenses: 9800 },
-  { month: 'Apr', revenue: 2780, expenses: 3908 },
-  { month: 'May', revenue: 1890, expenses: 4800 },
-  { month: 'Jun', revenue: 2390, expenses: 3800 },
-  { month: 'Jul', revenue: 3490, expenses: 4300 },
+  { month: 'Jan', revenue: 450000, expenses: 280000 },
+  { month: 'Feb', revenue: 520000, expenses: 320000 },
+  { month: 'Mar', revenue: 480000, expenses: 290000 },
+  { month: 'Apr', revenue: 580000, expenses: 350000 },
+  { month: 'May', revenue: 620000, expenses: 380000 },
+  { month: 'Jun', revenue: 550000, expenses: 340000 },
+  { month: 'Jul', revenue: 680000, expenses: 420000 },
 ]
 
 export default function RevenueChart() {
@@ -42,7 +43,7 @@ export default function RevenueChart() {
             <XAxis dataKey="month" />
             <YAxis />
             <Tooltip 
-              formatter={(value, name) => [`$${value}`, name === 'revenue' ? 'Revenue' : 'Expenses']}
+              formatter={(value: number, name) => [formatPKR(value), name === 'revenue' ? 'Revenue' : 'Expenses']}
             />
             <Line 
               type="monotone" 

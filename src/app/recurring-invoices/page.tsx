@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createSupabaseClient } from '@/lib/supabase'
+import DashboardLayout from '@/components/layout/DashboardLayout'
 import styled from 'styled-components'
 import { 
   Plus, 
@@ -29,7 +30,7 @@ const PageContainer = styled.div`
 
 const Header = styled.div`
   display: flex;
-  justify-content: between;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
   flex-wrap: wrap;
@@ -58,42 +59,59 @@ const Button = styled.button<{ variant?: 'primary' | 'secondary' | 'danger' }>`
   font-weight: 500;
   transition: all 0.2s ease;
   cursor: pointer;
-  
+  border: none;
+  font-size: 0.875rem;
+
   ${props => {
     switch (props.variant) {
       case 'primary':
         return `
           background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
           color: white;
-          border: 1px solid rgba(239, 68, 68, 0.3);
+          box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
           
           &:hover {
             background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
           }
-        `;
+          
+          &:active {
+            transform: translateY(0);
+          }
+        `
+      case 'secondary':
+        return `
+          background: var(--card-background);
+          color: var(--text-primary);
+          border: 1px solid var(--border-color);
+          
+          &:hover {
+            background: rgba(239, 68, 68, 0.05);
+            border-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+          }
+        `
       case 'danger':
         return `
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+          background: #dc2626;
           color: white;
-          border: 1px solid rgba(239, 68, 68, 0.3);
           
           &:hover {
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            background: #b91c1c;
           }
-        `;
+        `
       default:
         return `
-          background: rgba(239, 68, 68, 0.1);
+          background: var(--card-background);
           color: var(--text-primary);
-          border: 1px solid rgba(239, 68, 68, 0.2);
+          border: 1px solid var(--border-color);
           
           &:hover {
-            background: rgba(239, 68, 68, 0.2);
-            border-color: rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.05);
+            border-color: rgba(239, 68, 68, 0.2);
           }
-        `;
+        `
     }
   }}
 `
@@ -112,7 +130,8 @@ const StatCard = styled.div`
   padding: 1.5rem;
   position: relative;
   overflow: hidden;
-  
+  transition: all 0.2s ease;
+
   &::before {
     content: '';
     position: absolute;
@@ -121,6 +140,12 @@ const StatCard = styled.div`
     right: 0;
     height: 3px;
     background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
   }
 `
 
@@ -154,6 +179,12 @@ const MainContent = styled.div`
   border: 1px solid var(--border-color);
   border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  }
 `
 
 const TableHeader = styled.div`
@@ -332,6 +363,13 @@ const SidebarCard = styled.div`
   border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+  }
 `
 
 const SidebarTitle = styled.h3`
@@ -354,12 +392,13 @@ const QuickAction = styled.button`
   cursor: pointer;
   transition: all 0.2s ease;
   margin-bottom: 0.5rem;
-  
+
   &:hover {
     background: rgba(239, 68, 68, 0.05);
     border-color: rgba(239, 68, 68, 0.2);
+    transform: translateX(4px);
   }
-  
+
   &:last-child {
     margin-bottom: 0;
   }
@@ -386,16 +425,25 @@ const EmptyStateIcon = styled.div`
 // Types
 interface RecurringInvoiceTemplate {
   id: string
+  user_id: string
+  client_id?: string
   template_name: string
-  client_name?: string
+  description?: string
   amount: number
   currency: string
   frequency: string
   frequency_interval: number
+  start_date: string
+  end_date?: string
   next_invoice_date: string
   is_active: boolean
   auto_send: boolean
+  payment_terms: number
+  notes?: string
   created_at: string
+  updated_at: string
+  // Joined data
+  client_name?: string
 }
 
 interface DashboardStats {
@@ -418,143 +466,86 @@ export default function RecurringInvoicesPage() {
   const [filter, setFilter] = useState('all')
 
   useEffect(() => {
-    if (user) {
-      fetchTemplates()
-      fetchStats()
-    }
-  }, [user])
+    const fetchData = async () => {
+      if (!user?.id) return
 
-  const fetchTemplates = async () => {
-    try {
-      const supabase = createSupabaseClient();
-      
-      if (!supabase) {
-        console.error('Supabase client is null');
-        return;
-      }
-      const { data, error } = await supabase
-        .from('recurring_invoice_templates')
-        .select(`
-          id,
-          template_name,
-          client_id,
-          amount,
-          currency,
-          frequency,
-          frequency_interval,
-          next_invoice_date,
-          is_active,
-          auto_send,
-          created_at,
-          clients (
-            name
-          )
-        `)
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
+      try {
+        const supabase = createSupabaseClient()
 
-      if (error) {
-        console.error('Error fetching recurring invoice templates:', error);
-        return;
-      }
-
-      // Transform data to match interface
-      const transformedTemplates = data?.map(template => ({
-        ...template,
-        client_name: template.clients?.[0]?.name || 'No client assigned'
-      })) || [];
-
-      setTemplates(transformedTemplates);
-    } catch (error) {
-      console.error('Error fetching recurring invoice templates:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const fetchStats = async () => {
-    try {
-      const supabase = createSupabaseClient();
-      
-      // Get all templates for the user
-      if (!supabase) {
-        console.error('Supabase client is null');
-        return;
-      }
-      const { data: allTemplates, error } = await supabase
-        .from('recurring_invoice_templates')
-        .select('id, amount, frequency, frequency_interval, next_invoice_date, is_active, created_at')
-        .eq('user_id', user?.id);
-
-      if (error) {
-        console.error('Error fetching template stats:', error);
-        return;
-      }
-
-      const activeTemplates = allTemplates?.filter(t => t.is_active).length || 0;
-      
-      // Calculate total monthly value
-      let totalMonthlyValue = 0;
-      allTemplates?.forEach(template => {
-        if (!template.is_active) return;
-        
-        const amount = template.amount || 0;
-        const interval = template.frequency_interval || 1;
-        
-        switch (template.frequency) {
-          case 'weekly':
-            totalMonthlyValue += (amount * 4.33) / interval; // Average weeks per month
-            break;
-          case 'monthly':
-            totalMonthlyValue += amount / interval;
-            break;
-          case 'quarterly':
-            totalMonthlyValue += (amount / 3) / interval;
-            break;
-          case 'yearly':
-            totalMonthlyValue += (amount / 12) / interval;
-            break;
-          default:
-            totalMonthlyValue += amount / interval; // Default to monthly
+        // Fetch recurring invoice templates with client information
+        if (!supabase) {
+          console.error('Supabase client is null')
+          return
         }
-      });
 
-      // Get invoices due this week
-      const now = new Date();
-      const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      const nextInvoicesDue = allTemplates
-        ?.filter(template => 
-          template.is_active && 
-          template.next_invoice_date && 
-          new Date(template.next_invoice_date) >= now && 
-          new Date(template.next_invoice_date) <= oneWeekFromNow
-        )
-        .length || 0;
+        const { data: templatesData, error: templatesError } = await supabase
+          .from('recurring_invoice_templates')
+          .select(`
+            *,
+            clients (
+              name,
+              email
+            )
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
 
-      // Get generated invoices this month (from recurring_invoice_history)
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const { data: generatedInvoices, error: historyError } = await supabase
-        .from('recurring_invoice_history')
-        .select('id')
-        .eq('user_id', user?.id || '')
-        .gte('generated_at', firstDayOfMonth.toISOString());
+        if (templatesError) {
+          console.error('Error fetching templates:', templatesError)
+        } else {
+          // Transform data to include client_name
+          const transformedTemplates = templatesData?.map(template => ({
+            ...template,
+            client_name: template.clients?.name || 'No Client'
+          })) || []
+          
+          setTemplates(transformedTemplates)
+        }
 
-      if (historyError) {
-        console.error('Error fetching invoice history:', historyError);
+        // Calculate dashboard stats
+        const activeTemplates = templatesData?.filter(t => t.is_active).length || 0
+        const totalMonthlyValue = templatesData
+          ?.filter(t => t.is_active && t.frequency === 'monthly')
+          .reduce((sum, t) => sum + Number(t.amount), 0) || 0
+
+        // Count templates with next_invoice_date in the next 7 days
+        const nextWeek = new Date()
+        nextWeek.setDate(nextWeek.getDate() + 7)
+        const nextInvoicesDue = templatesData?.filter(t => 
+          t.is_active && 
+          new Date(t.next_invoice_date) <= nextWeek
+        ).length || 0
+
+        // Fetch generated invoices this month from recurring_invoice_history
+        const startOfMonth = new Date()
+        startOfMonth.setDate(1)
+        startOfMonth.setHours(0, 0, 0, 0)
+
+        const { data: historyData } = await supabase
+          .from('recurring_invoice_history')
+          .select('id')
+          .gte('generated_date', startOfMonth.toISOString())
+
+        const generatedThisMonth = historyData?.length || 0
+
+        setStats({
+          activeTemplates,
+          totalMonthlyValue,
+          nextInvoicesDue,
+          generatedThisMonth
+        })
+
+      } catch (error) {
+        console.error('Error fetching data:', error)
+      } finally {
+        setLoading(false)
       }
-
-      const generatedThisMonth = generatedInvoices?.length || 0;
-
-      setStats({
-        activeTemplates,
-        totalMonthlyValue: Math.round(totalMonthlyValue),
-        nextInvoicesDue,
-        generatedThisMonth
-      });
-    } catch (error) {
-      console.error('Error fetching template stats:', error);
     }
-  }
+
+    fetchData()
+  }, [user?.id])
+
+
 
   const formatCurrency = (amount: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
@@ -578,7 +569,27 @@ export default function RecurringInvoicesPage() {
 
   const toggleTemplate = async (templateId: string, currentStatus: boolean) => {
     try {
-      // API call to toggle template status
+      const supabase = createSupabaseClient()
+      
+      if (!supabase) {
+        console.error('Supabase client is null')
+        return
+      }
+      const { error } = await supabase
+        .from('recurring_invoice_templates')
+        .update({ 
+          is_active: !currentStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', templateId)
+        .eq('user_id', user?.id)
+
+      if (error) {
+        console.error('Error updating template:', error)
+        return
+      }
+
+      // Update local state
       setTemplates(prev => 
         prev.map(template => 
           template.id === templateId 
@@ -586,19 +597,72 @@ export default function RecurringInvoicesPage() {
             : template
         )
       )
+
+      // Recalculate stats
+      const updatedTemplates = templates.map(template => 
+        template.id === templateId 
+          ? { ...template, is_active: !currentStatus }
+          : template
+      )
+      
+      const activeTemplates = updatedTemplates.filter(t => t.is_active).length
+      const totalMonthlyValue = updatedTemplates
+        .filter(t => t.is_active && t.frequency === 'monthly')
+        .reduce((sum, t) => sum + Number(t.amount), 0)
+
+      setStats(prev => ({
+        ...prev,
+        activeTemplates,
+        totalMonthlyValue
+      }))
+
     } catch (error) {
       console.error('Error toggling template:', error)
     }
   }
 
   const deleteTemplate = async (templateId: string) => {
-    if (window.confirm('Are you sure you want to delete this recurring invoice template?')) {
-      try {
-        // API call to delete template
-        setTemplates(prev => prev.filter(template => template.id !== templateId))
-      } catch (error) {
-        console.error('Error deleting template:', error)
+    if (!window.confirm('Are you sure you want to delete this recurring invoice template?')) {
+      return
+    }
+
+    try {
+      const supabase = createSupabaseClient()
+      
+      if (!supabase) {
+        console.error('Supabase client is null')
+        return
       }
+
+      const { error } = await supabase
+        .from('recurring_invoice_templates')
+        .delete()
+        .eq('id', templateId)
+        .eq('user_id', user?.id)
+
+      if (error) {
+        console.error('Error deleting template:', error)
+        return
+      }
+
+      // Update local state
+      setTemplates(prev => prev.filter(template => template.id !== templateId))
+
+      // Recalculate stats
+      const updatedTemplates = templates.filter(template => template.id !== templateId)
+      const activeTemplates = updatedTemplates.filter(t => t.is_active).length
+      const totalMonthlyValue = updatedTemplates
+        .filter(t => t.is_active && t.frequency === 'monthly')
+        .reduce((sum, t) => sum + Number(t.amount), 0)
+
+      setStats(prev => ({
+        ...prev,
+        activeTemplates,
+        totalMonthlyValue
+      }))
+
+    } catch (error) {
+      console.error('Error deleting template:', error)
     }
   }
 
@@ -615,14 +679,17 @@ export default function RecurringInvoicesPage() {
 
   if (loading) {
     return (
-      <PageContainer>
-        <div>Loading...</div>
-      </PageContainer>
+      <DashboardLayout>
+        <PageContainer>
+          <div>Loading...</div>
+        </PageContainer>
+      </DashboardLayout>
     )
   }
 
   return (
-    <PageContainer id="recurring-invoices-content">
+    <DashboardLayout>
+      <PageContainer id="recurring-invoices-content">
       <Header>
         <Title>Recurring Invoices</Title>
         <ActionButtons>
@@ -732,20 +799,24 @@ export default function RecurringInvoicesPage() {
                     </StatusBadge>
                   </div>
                   <ActionButtonsGroup>
-                    <IconButton variant="edit" title="Edit Template">
-                      <Edit size={16} />
-                    </IconButton>
-                    <IconButton 
-                      variant="toggle" 
-                      title={template.is_active ? 'Pause Template' : 'Activate Template'}
+                    <IconButton
+                      variant="toggle"
                       onClick={() => toggleTemplate(template.id, template.is_active)}
+                      title={template.is_active ? 'Pause Template' : 'Activate Template'}
                     >
                       {template.is_active ? <Pause size={16} /> : <Play size={16} />}
                     </IconButton>
-                    <IconButton 
-                      variant="delete" 
-                      title="Delete Template"
+                    <IconButton
+                      variant="edit"
+                      onClick={() => {/* TODO: Implement edit functionality */}}
+                      title="Edit Template"
+                    >
+                      <Edit size={16} />
+                    </IconButton>
+                    <IconButton
+                      variant="delete"
                       onClick={() => deleteTemplate(template.id)}
+                      title="Delete Template"
                     >
                       <Trash2 size={16} />
                     </IconButton>
@@ -814,5 +885,6 @@ export default function RecurringInvoicesPage() {
         </Sidebar>
       </ContentGrid>
     </PageContainer>
+    </DashboardLayout>
   )
 }

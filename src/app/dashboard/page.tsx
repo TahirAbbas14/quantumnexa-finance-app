@@ -9,6 +9,8 @@ import { createSupabaseClient } from '@/lib/supabase';
 import { formatPKR } from '@/lib/currency';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import RevenueChart from '@/components/dashboard/RevenueChart';
+import ExpenseBreakdownChart from '@/components/dashboard/ExpenseBreakdownChart';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -686,18 +688,7 @@ export default function DashboardPage() {
               <p>Monthly revenue and expenses comparison</p>
             </Card.Header>
             <Card.Content>
-              <div style={{ 
-                height: '300px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                background: 'rgba(255, 255, 255, 0.1)',
-                borderRadius: '12px',
-                color: 'var(--gray-600)'
-              }}>
-                <BarChart3 size={48} />
-                <span style={{ marginLeft: '16px' }}>Chart will be implemented with Chart.js</span>
-              </div>
+              <RevenueChart />
             </Card.Content>
           </Card>
 
@@ -707,18 +698,7 @@ export default function DashboardPage() {
               <p>Categories distribution</p>
             </Card.Header>
             <Card.Content>
-              <div style={{ 
-                height: '300px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                background: 'rgba(255, 255, 255, 0.1)',
-                borderRadius: '12px',
-                color: 'var(--gray-600)'
-              }}>
-                <PieChart size={48} />
-                <span style={{ marginLeft: '16px' }}>Pie chart placeholder</span>
-              </div>
+              <ExpenseBreakdownChart />
             </Card.Content>
           </Card>
         </ChartsGrid>

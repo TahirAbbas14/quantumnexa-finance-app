@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createSupabaseClient } from '@/lib/supabase'
+import DashboardLayout from '@/components/layout/DashboardLayout'
 import styled from 'styled-components'
 import { 
   Plus, 
@@ -740,13 +741,17 @@ export default function PaymentRemindersPage() {
 
   if (loading) {
     return (
-      <PageContainer>
-        <div>Loading...</div>
-      </PageContainer>
+      <DashboardLayout>
+        <PageContainer>
+          <div>Loading...</div>
+        </PageContainer>
+      </DashboardLayout>
     )
   }
 
   return (
+    <DashboardLayout>
+
     <PageContainer id="payment-reminders-content">
       <Header>
         <Title>Payment Reminders</Title>
@@ -994,5 +999,6 @@ export default function PaymentRemindersPage() {
         </Sidebar>
       </ContentGrid>
     </PageContainer>
+    </DashboardLayout>
   )
 }
