@@ -37,7 +37,7 @@ const ExpenseBreakdownChart: React.FC<ExpenseBreakdownChartProps> = ({
   data = defaultData, 
   height = 300 
 }) => {
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: ExpenseData & { total: number } }> }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload
       const percentage = ((data.amount / data.total) * 100).toFixed(1)
@@ -79,7 +79,9 @@ const ExpenseBreakdownChart: React.FC<ExpenseBreakdownChartProps> = ({
     return null
   }
 
-  const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const CustomLabel = (props: any) => {
+    const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props
     if (percent < 0.05) return null // Don't show labels for slices less than 5%
     
     const RADIAN = Math.PI / 180
@@ -132,9 +134,9 @@ const ExpenseBreakdownChart: React.FC<ExpenseBreakdownChartProps> = ({
             fontSize: '12px',
             paddingTop: '20px'
           }}
-          formatter={(value, entry: any) => (
-            <span style={{ color: entry.color }}>
-              {value} ({formatPKR(entry.payload.amount)})
+          formatter={(value, entry) => (
+            <span style={{ color: entry.color || 'inherit' }}>
+              {value} ({formatPKR((entry.payload as ExpenseData).amount)})
             </span>
           )}
         />
