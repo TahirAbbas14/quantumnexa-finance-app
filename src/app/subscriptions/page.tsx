@@ -22,96 +22,164 @@ import {
   Settings
 } from 'lucide-react'
 
-// Styled Components (reusing similar styles from recurring invoices)
-const PageContainer = styled.div`
-  padding: 2rem;
+// Styled Components - Dashboard Theme
+const Container = styled.div`
+  padding: 32px;
   max-width: 1400px;
   margin: 0 auto;
-`
+
+  @media (max-width: 768px) {
+    padding: 16px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 12px;
+  }
+`;
 
 const Header = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-  gap: 1rem;
-`
+  margin-bottom: 40px;
 
-const Title = styled.h1`
-  font-size: 2rem;
-  font-weight: bold;
-  color: var(--heading-primary);
-  margin: 0;
-`
+  @media (max-width: 768px) {
+    margin-bottom: 24px;
+  }
 
-const ActionButtons = styled.div`
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 8px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    @media (max-width: 768px) {
+      font-size: 24px;
+      margin-bottom: 6px;
+    }
+
+    @media (max-width: 480px) {
+      font-size: 20px;
+    }
+  }
+
+  p {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.8);
+
+    @media (max-width: 768px) {
+      font-size: 14px;
+    }
+
+    @media (max-width: 480px) {
+      font-size: 13px;
+    }
+  }
+`;
+
+const HeaderActions = styled.div`
   display: flex;
   gap: 1rem;
   align-items: center;
-`
+  margin-top: 1rem;
+
+  @media (max-width: 768px) {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+`;
 
 const Button = styled.button<{ variant?: 'primary' | 'secondary' | 'danger' }>`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
   cursor: pointer;
-  
+  border: none;
+  white-space: nowrap;
+
+  @media (max-width: 768px) {
+    padding: 10px 20px;
+    font-size: 13px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 12px 16px;
+    justify-content: center;
+  }
+
   ${props => {
     switch (props.variant) {
       case 'primary':
         return `
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+          background: var(--primary-600);
           color: white;
-          border: 1px solid rgba(239, 68, 68, 0.3);
           
           &:hover {
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+            background: var(--primary-700);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
           }
         `;
       case 'danger':
         return `
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+          background: var(--error-600);
           color: white;
-          border: 1px solid rgba(239, 68, 68, 0.3);
           
           &:hover {
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            background: var(--error-700);
+            transform: translateY(-2px);
           }
         `;
       default:
         return `
-          background: rgba(239, 68, 68, 0.1);
-          color: var(--text-primary);
-          border: 1px solid rgba(239, 68, 68, 0.2);
+          background: rgba(255, 255, 255, 0.1);
+          color: white;
+          border: 1px solid rgba(255, 255, 255, 0.2);
           
           &:hover {
-            background: rgba(239, 68, 68, 0.2);
-            border-color: rgba(239, 68, 68, 0.3);
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
           }
         `;
     }
   }}
-`
+`;
 
 const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-`
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
 
-const StatCard = styled.div`
-  background: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.5rem;
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+`;
+
+const StatCard = styled.div<{ color?: string }>`
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
   
@@ -121,830 +189,850 @@ const StatCard = styled.div`
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    height: 4px;
+    background: ${props => props.color || 'var(--primary-500)'};
   }
-`
 
-const StatValue = styled.div`
-  font-size: 2rem;
-  font-weight: bold;
-  color: var(--heading-primary);
-  margin-bottom: 0.5rem;
-`
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
 
-const StatLabel = styled.div`
-  color: var(--text-secondary);
-  font-size: 0.875rem;
+  @media (max-width: 768px) {
+    padding: 20px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 16px;
+  }
+`;
+
+const StatHeader = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-`
+  justify-content: space-between;
+  margin-bottom: 16px;
+
+  @media (max-width: 480px) {
+    margin-bottom: 12px;
+  }
+`;
+
+const StatIcon = styled.div<{ color?: string }>`
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: ${props => props.color || 'var(--primary-500)'};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 12px ${props => props.color ? `${props.color}40` : 'rgba(239, 68, 68, 0.25)'};
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+  }
+
+  svg {
+    width: 24px;
+    height: 24px;
+
+    @media (max-width: 768px) {
+      width: 20px;
+      height: 20px;
+    }
+
+    @media (max-width: 480px) {
+      width: 18px;
+      height: 18px;
+    }
+  }
+`;
+
+const StatValue = styled.div`
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 4px;
+
+  @media (max-width: 768px) {
+    font-size: 24px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 20px;
+  }
+`;
 
 const ContentGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr;
-  gap: 2rem;
+  gap: 32px;
   
   @media (min-width: 1200px) {
     grid-template-columns: 2fr 1fr;
   }
-`
+
+  @media (max-width: 768px) {
+    gap: 24px;
+  }
+
+  @media (max-width: 480px) {
+    gap: 16px;
+  }
+`;
 
 const MainContent = styled.div`
-  background: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
   overflow: hidden;
-`
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+`;
 
 const TableHeader = styled.div`
-  background: rgba(239, 68, 68, 0.05);
-  border-bottom: 1px solid var(--border-color);
-  padding: 1rem 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-`
+
+  @media (max-width: 768px) {
+    padding: 20px;
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  @media (max-width: 480px) {
+    padding: 16px;
+    gap: 12px;
+  }
+`;
 
 const TableTitle = styled.h2`
-  font-size: 1.25rem;
+  font-size: 20px;
   font-weight: 600;
-  color: var(--heading-primary);
+  color: white;
   margin: 0;
-`
+
+  @media (max-width: 768px) {
+    font-size: 18px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 16px;
+  }
+`;
 
 const FilterButton = styled.button`
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-secondary);
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  font-size: 14px;
   
   &:hover {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.3);
-    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
+    transform: translateY(-1px);
   }
-`
+
+  @media (max-width: 768px) {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  @media (max-width: 480px) {
+    justify-content: center;
+    width: 100%;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`;
 
 const Table = styled.div`
   overflow-x: auto;
-`
+`;
 
 const TableRow = styled.div<{ isHeader?: boolean }>`
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr 1fr 120px;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
+  gap: 16px;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   align-items: center;
-  
-  ${props => props.isHeader && `
-    background: rgba(239, 68, 68, 0.02);
-    font-weight: 600;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-  `}
-  
-  &:last-child {
-    border-bottom: none;
-  }
-  
-  &:hover:not(:first-child) {
-    background: rgba(239, 68, 68, 0.02);
-  }
-`
+  transition: all 0.2s ease;
+  min-width: 800px;
 
-const CategoryBadge = styled.span<{ category: string }>`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  
-  ${props => {
-    const colors = {
-      'Software & Tools': { bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'rgba(59, 130, 246, 0.2)' },
-      'Entertainment': { bg: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6', border: 'rgba(139, 92, 246, 0.2)' },
-      'Utilities': { bg: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: 'rgba(16, 185, 129, 0.2)' },
-      'Insurance': { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', border: 'rgba(245, 158, 11, 0.2)' },
-      'default': { bg: 'rgba(107, 114, 128, 0.1)', color: '#6b7280', border: 'rgba(107, 114, 128, 0.2)' }
+  ${props => props.isHeader ? `
+    background: rgba(255, 255, 255, 0.05);
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+  ` : `
+    color: rgba(255, 255, 255, 0.8);
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: white;
     }
-    const colorScheme = colors[props.category as keyof typeof colors] || colors.default
-    return `
-      background: ${colorScheme.bg};
-      color: ${colorScheme.color};
-      border: 1px solid ${colorScheme.border};
-    `
-  }}
-`
+  `}
+
+  @media (max-width: 768px) {
+    padding: 12px 20px;
+    gap: 12px;
+    font-size: 13px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 12px 16px;
+    gap: 8px;
+    font-size: 12px;
+  }
+`;
 
 const StatusBadge = styled.span<{ status: string }>`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.75rem;
+  padding: 6px 12px;
   border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   
   ${props => {
-    switch (props.status) {
+    switch (props.status.toLowerCase()) {
       case 'active':
         return `
-          background: rgba(34, 197, 94, 0.1);
-          color: #16a34a;
-          border: 1px solid rgba(34, 197, 94, 0.2);
+          background: rgba(34, 197, 94, 0.2);
+          color: #22c55e;
+          border: 1px solid rgba(34, 197, 94, 0.3);
         `;
       case 'paused':
         return `
-          background: rgba(251, 191, 36, 0.1);
-          color: #d97706;
-          border: 1px solid rgba(251, 191, 36, 0.2);
+          background: rgba(251, 191, 36, 0.2);
+          color: #fbbf24;
+          border: 1px solid rgba(251, 191, 36, 0.3);
         `;
       case 'cancelled':
         return `
-          background: rgba(107, 114, 128, 0.1);
-          color: #6b7280;
-          border: 1px solid rgba(107, 114, 128, 0.2);
-        `;
-      case 'due_soon':
-        return `
-          background: rgba(239, 68, 68, 0.1);
-          color: #dc2626;
-          border: 1px solid rgba(239, 68, 68, 0.2);
+          background: rgba(239, 68, 68, 0.2);
+          color: #ef4444;
+          border: 1px solid rgba(239, 68, 68, 0.3);
         `;
       default:
         return `
-          background: rgba(239, 68, 68, 0.1);
-          color: #dc2626;
-          border: 1px solid rgba(239, 68, 68, 0.2);
+          background: rgba(156, 163, 175, 0.2);
+          color: #9ca3af;
+          border: 1px solid rgba(156, 163, 175, 0.3);
         `;
     }
   }}
-`
+
+  @media (max-width: 768px) {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 3px 6px;
+    font-size: 10px;
+  }
+`;
 
 const ActionButtonsGroup = styled.div`
   display: flex;
-  gap: 0.5rem;
+  gap: 8px;
   justify-content: flex-end;
-`
 
-const IconButton = styled.button<{ variant?: 'edit' | 'delete' | 'toggle' | 'external' }>`
+  @media (max-width: 768px) {
+    gap: 6px;
+  }
+
+  @media (max-width: 480px) {
+    gap: 4px;
+  }
+`;
+
+const IconButton = styled.button<{ variant?: 'edit' | 'delete' | 'action' }>`
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  cursor: pointer;
   transition: all 0.2s ease;
   
   ${props => {
     switch (props.variant) {
       case 'edit':
         return `
-          background: rgba(59, 130, 246, 0.1);
+          background: rgba(59, 130, 246, 0.2);
           color: #3b82f6;
           
           &:hover {
-            background: rgba(59, 130, 246, 0.2);
-            border-color: rgba(59, 130, 246, 0.3);
+            background: rgba(59, 130, 246, 0.3);
+            transform: scale(1.1);
           }
         `;
       case 'delete':
         return `
-          background: rgba(239, 68, 68, 0.1);
+          background: rgba(239, 68, 68, 0.2);
           color: #ef4444;
           
           &:hover {
-            background: rgba(239, 68, 68, 0.2);
-            border-color: rgba(239, 68, 68, 0.3);
-          }
-        `;
-      case 'toggle':
-        return `
-          background: rgba(34, 197, 94, 0.1);
-          color: #22c55e;
-          
-          &:hover {
-            background: rgba(34, 197, 94, 0.2);
-            border-color: rgba(34, 197, 94, 0.3);
-          }
-        `;
-      case 'external':
-        return `
-          background: rgba(107, 114, 128, 0.1);
-          color: #6b7280;
-          
-          &:hover {
-            background: rgba(107, 114, 128, 0.2);
-            border-color: rgba(107, 114, 128, 0.3);
+            background: rgba(239, 68, 68, 0.3);
+            transform: scale(1.1);
           }
         `;
       default:
         return `
-          background: rgba(107, 114, 128, 0.1);
-          color: #6b7280;
+          background: rgba(255, 255, 255, 0.1);
+          color: rgba(255, 255, 255, 0.8);
           
           &:hover {
-            background: rgba(107, 114, 128, 0.2);
-            border-color: rgba(107, 114, 128, 0.3);
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            transform: scale(1.1);
           }
         `;
     }
   }}
-`
+
+  @media (max-width: 768px) {
+    width: 28px;
+    height: 28px;
+  }
+
+  @media (max-width: 480px) {
+    width: 24px;
+    height: 24px;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+
+    @media (max-width: 768px) {
+      width: 14px;
+      height: 14px;
+    }
+
+    @media (max-width: 480px) {
+      width: 12px;
+      height: 12px;
+    }
+  }
+`;
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 80px 24px;
+  color: rgba(255, 255, 255, 0.6);
+
+  @media (max-width: 768px) {
+    padding: 60px 20px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 40px 16px;
+  }
+`;
+
+const EmptyStateIcon = styled.div`
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  color: rgba(255, 255, 255, 0.4);
+
+  @media (max-width: 768px) {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 480px) {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+  }
+
+  svg {
+    width: 40px;
+    height: 40px;
+
+    @media (max-width: 768px) {
+      width: 32px;
+      height: 32px;
+    }
+
+    @media (max-width: 480px) {
+      width: 24px;
+      height: 24px;
+    }
+  }
+`;
 
 const Sidebar = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-`
+  gap: 24px;
+
+  @media (max-width: 768px) {
+    gap: 20px;
+  }
+
+  @media (max-width: 480px) {
+    gap: 16px;
+  }
+`;
 
 const SidebarCard = styled.div`
-  background: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.5rem;
-`
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+  @media (max-width: 768px) {
+    padding: 20px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 16px;
+  }
+`;
 
 const SidebarTitle = styled.h3`
-  font-size: 1.125rem;
+  font-size: 18px;
   font-weight: 600;
-  color: var(--heading-primary);
-  margin: 0 0 1rem 0;
-`
+  color: white;
+  margin: 0 0 16px 0;
+
+  @media (max-width: 768px) {
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+`;
 
 const QuickAction = styled.button`
+  width: 100%;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 0.75rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: 0.5rem;
-  
-  &:hover {
-    background: rgba(239, 68, 68, 0.05);
-    border-color: rgba(239, 68, 68, 0.2);
-  }
-  
+  gap: 12px;
+  margin-bottom: 12px;
+
   &:last-child {
     margin-bottom: 0;
   }
-`
 
-const EmptyState = styled.div`
-  text-align: center;
-  padding: 3rem 1.5rem;
-  color: var(--text-secondary);
-`
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    transform: translateX(4px);
+  }
 
-const EmptyStateIcon = styled.div`
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 1rem;
-  background: rgba(239, 68, 68, 0.1);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ef4444;
-`
+  @media (max-width: 768px) {
+    padding: 12px;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
 
-const UpcomingRenewal = styled.div<{ daysUntil: number }>`
-  padding: 0.75rem;
-  border-radius: 8px;
-  margin-bottom: 0.75rem;
-  border-left: 4px solid;
-  
-  ${props => {
-    if (props.daysUntil <= 3) {
-      return `
-        background: rgba(239, 68, 68, 0.05);
-        border-left-color: #ef4444;
-      `;
-    } else if (props.daysUntil <= 7) {
-      return `
-        background: rgba(251, 191, 36, 0.05);
-        border-left-color: #f59e0b;
-      `;
-    } else {
-      return `
-        background: rgba(34, 197, 94, 0.05);
-        border-left-color: #22c55e;
-      `;
+  @media (max-width: 480px) {
+    padding: 10px;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+    color: var(--primary-400);
+
+    @media (max-width: 768px) {
+      width: 18px;
+      height: 18px;
     }
-  }}
-`
 
-// Types
-interface SubscriptionDbRow {
-  id: string
-  service_name: string
-  description?: string
-  category: string
-  amount: number
-  currency?: string
-  billing_cycle: string
-  next_billing_date: string
-  is_active: boolean
-  payment_method?: string
-  created_at: string
-}
+    @media (max-width: 480px) {
+      width: 16px;
+      height: 16px;
+    }
+  }
+`;
 
 interface Subscription {
   id: string
-  name: string
-  description?: string
-  category: string
-  amount: number
-  currency: string
-  billing_frequency: string
-  billing_interval: number
+  service_name: string
+  cost: number
+  billing_cycle: string
   next_billing_date: string
-  is_active: boolean
-  vendor: string
-  website_url?: string
+  status: string
+  category: string
+  description?: string
+  auto_renew: boolean
   created_at: string
-}
-
-interface SubscriptionStats {
-  totalSubscriptions: number
-  monthlyTotal: number
-  yearlyTotal: number
-  upcomingRenewals: number
 }
 
 export default function SubscriptionsPage() {
   const { user } = useAuth()
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
-  const [stats, setStats] = useState<SubscriptionStats>({
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
     totalSubscriptions: 0,
     monthlyTotal: 0,
     yearlyTotal: 0,
-    upcomingRenewals: 0
+    activeSubscriptions: 0
   })
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
 
   useEffect(() => {
     if (user) {
       fetchSubscriptions()
-      fetchStats()
     }
   }, [user])
 
   const fetchSubscriptions = async () => {
     try {
-      const supabase = createSupabaseClient();
-      
-      const { data, error } = await (supabase as NonNullable<typeof supabase>)
+      const supabase = createSupabaseClient()
+      const { data, error } = await supabase!
         .from('subscriptions')
-        .select(`
-          id,
-          service_name,
-          description,
-          amount,
-          currency,
-          billing_cycle,
-          start_date,
-          next_billing_date,
-          end_date,
-          category,
-          status,
-          is_active,
-          auto_renewal,
-          payment_method,
-          notes,
-          created_at,
-          updated_at
-        `)
-        .eq('user_id', user!.id)
-        .eq('is_active', true)
-        .order('next_billing_date', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching subscriptions:', error);
-        return;
-      }
-
-      setSubscriptions(
-        (data || []).map((item: SubscriptionDbRow) => ({
-          id: item.id,
-          name: item.service_name,
-          description: item.description,
-          category: item.category,
-          amount: item.amount,
-          currency: item.currency || 'USD',
-          billing_frequency: item.billing_cycle,
-          billing_interval: 1, // default to 1 if not provided
-          next_billing_date: item.next_billing_date,
-          is_active: item.is_active,
-          vendor: item.payment_method || 'Unknown',
-          website_url: undefined,
-          created_at: item.created_at
-        }))
-      );
-    } catch (error) {
-      console.error('Error fetching subscriptions:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const fetchStats = async () => {
-    try {
-      const supabase = createSupabaseClient();
-      
-      // Get all active subscriptions for the user
-      const { data: allSubscriptions, error } = await (supabase as NonNullable<typeof supabase>)
-        .from('subscriptions')
-        .select('id, amount, billing_cycle, next_billing_date, is_active')
+        .select('*')
         .eq('user_id', user?.id)
-        .eq('is_active', true);
+        .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('Error fetching subscription stats:', error);
-        return;
-      }
+      if (error) throw error
 
-      const totalSubscriptions = allSubscriptions?.length || 0;
-      
-      // Calculate monthly total
-      let monthlyTotal = 0;
-      allSubscriptions?.forEach(sub => {
-        const amount = sub.amount || 0;
-        switch (sub.billing_cycle) {
-          case 'weekly':
-            monthlyTotal += amount * 4.33; // Average weeks per month
-            break;
-          case 'monthly':
-            monthlyTotal += amount;
-            break;
-          case 'quarterly':
-            monthlyTotal += amount / 3;
-            break;
-          case 'yearly':
-            monthlyTotal += amount / 12;
-            break;
-          default:
-            monthlyTotal += amount; // Default to monthly
-        }
-      });
-
-      const yearlyTotal = monthlyTotal * 12;
-
-      // Get upcoming renewals (next 30 days)
-      const now = new Date();
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      const upcomingRenewals = allSubscriptions
-        ?.filter(sub => 
-          sub.next_billing_date && 
-          new Date(sub.next_billing_date) >= now && 
-          new Date(sub.next_billing_date) <= thirtyDaysFromNow
-        )
-        .length || 0;
-
-      setStats({
-        totalSubscriptions,
-        monthlyTotal: Math.round(monthlyTotal),
-        yearlyTotal: Math.round(yearlyTotal),
-        upcomingRenewals
-      });
+      setSubscriptions(data || [])
+      calculateStats(data || [])
     } catch (error) {
-      console.error('Error fetching subscription stats:', error);
+      console.error('Error fetching subscriptions:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const formatCurrency = (amount: number, currency: string = 'USD') => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency
-    }).format(amount)
-  }
+  const calculateStats = (subs: Subscription[]) => {
+    const activeSubs = subs.filter(sub => sub.status === 'active')
+    const monthlyTotal = activeSubs
+      .filter(sub => sub.billing_cycle === 'monthly')
+      .reduce((sum, sub) => sum + sub.cost, 0)
+    const yearlyTotal = activeSubs
+      .filter(sub => sub.billing_cycle === 'yearly')
+      .reduce((sum, sub) => sum + sub.cost, 0)
 
-  const formatFrequency = (frequency: string, interval: number) => {
-    const freq = interval > 1 ? `Every ${interval} ${frequency}s` : `${frequency.charAt(0).toUpperCase() + frequency.slice(1)}`
-    return freq
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    setStats({
+      totalSubscriptions: subs.length,
+      monthlyTotal,
+      yearlyTotal,
+      activeSubscriptions: activeSubs.length
     })
   }
 
-  const getDaysUntilRenewal = (dateString: string) => {
-    const renewalDate = new Date(dateString)
-    const today = new Date()
-    const diffTime = renewalDate.getTime() - today.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays
-  }
+  const handleDeleteSubscription = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this subscription?')) return
 
-  const getSubscriptionStatus = (subscription: Subscription) => {
-    if (!subscription.is_active) return 'paused'
-    const daysUntil = getDaysUntilRenewal(subscription.next_billing_date)
-    if (daysUntil <= 3) return 'due_soon'
-    return 'active'
-  }
-
-  const toggleSubscription = async (subscriptionId: string, currentStatus: boolean) => {
     try {
-      // API call to toggle subscription status
-      setSubscriptions(prev => 
-        prev.map(sub => 
-          sub.id === subscriptionId 
-            ? { ...sub, is_active: !currentStatus }
-            : sub
-        )
-      )
+      const supabase = createSupabaseClient()
+      if (!supabase) throw new Error('Supabase client is null')
+      const { error } = await supabase
+        .from('subscriptions')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      fetchSubscriptions()
     } catch (error) {
-      console.error('Error toggling subscription:', error)
+      console.error('Error deleting subscription:', error)
     }
   }
 
-  const deleteSubscription = async (subscriptionId: string) => {
-    if (window.confirm('Are you sure you want to delete this subscription?')) {
-      try {
-        // API call to delete subscription
-        setSubscriptions(prev => prev.filter(sub => sub.id !== subscriptionId))
-      } catch (error) {
-        console.error('Error deleting subscription:', error)
-      }
+  const toggleSubscriptionStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'paused' : 'active'
+    
+    try {
+      const supabase = createSupabaseClient()
+      if (!supabase) throw new Error('Supabase client is null')
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({ status: newStatus })
+        .eq('id', id)
+
+      if (error) throw error
+
+      fetchSubscriptions()
+    } catch (error) {
+      console.error('Error updating subscription status:', error)
     }
   }
-
-  const filteredSubscriptions = subscriptions.filter(subscription => {
-    switch (filter) {
-      case 'active':
-        return subscription.is_active
-      case 'paused':
-        return !subscription.is_active
-      case 'due_soon':
-        return subscription.is_active && getDaysUntilRenewal(subscription.next_billing_date) <= 7
-      default:
-        return true
-    }
-  })
-
-  const upcomingRenewals = subscriptions
-    .filter(sub => sub.is_active && getDaysUntilRenewal(sub.next_billing_date) <= 30)
-    .sort((a, b) => getDaysUntilRenewal(a.next_billing_date) - getDaysUntilRenewal(b.next_billing_date))
-    .slice(0, 5)
 
   if (loading) {
     return (
       <DashboardLayout>
-        <PageContainer>
-          <div>Loading...</div>
-        </PageContainer>
+        <Container>
+          <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+            Loading subscriptions...
+          </div>
+        </Container>
       </DashboardLayout>
     )
   }
 
   return (
     <DashboardLayout>
-      <PageContainer id="subscriptions-content">
-      <Header>
-        <Title>Subscription Management</Title>
-        <ActionButtons>
-          <Button variant="secondary">
-            <Download size={20} />
-            Export
-          </Button>
-          <Button variant="primary">
-            <Plus size={20} />
-            Add Subscription
-          </Button>
-        </ActionButtons>
-      </Header>
+      <Container>
+        <Header>
+          <div>
+            <h1>Subscriptions</h1>
+            <p>Manage your recurring subscriptions and track expenses</p>
+          </div>
+          <HeaderActions>
+            <Button variant="secondary">
+              <Download size={16} />
+              Export
+            </Button>
+            <Button variant="primary">
+              <Plus size={16} />
+              Add Subscription
+            </Button>
+          </HeaderActions>
+        </Header>
 
-      <StatsGrid>
-        <StatCard>
-          <StatValue>{stats.totalSubscriptions}</StatValue>
-          <StatLabel>
-            <CreditCard size={16} />
-            Active Subscriptions
-          </StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{formatCurrency(stats.monthlyTotal)}</StatValue>
-          <StatLabel>
-            <DollarSign size={16} />
-            Monthly Total
-          </StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{formatCurrency(stats.yearlyTotal)}</StatValue>
-          <StatLabel>
-            <TrendingUp size={16} />
-            Yearly Projection
-          </StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{stats.upcomingRenewals}</StatValue>
-          <StatLabel>
-            <AlertTriangle size={16} />
-            Renewals This Week
-          </StatLabel>
-        </StatCard>
-      </StatsGrid>
+        <StatsGrid>
+          <StatCard color="var(--primary-500)">
+            <StatHeader>
+              <StatIcon color="var(--primary-500)">
+                <CreditCard />
+              </StatIcon>
+            </StatHeader>
+            <StatValue>{stats.totalSubscriptions}</StatValue>
+            <div style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>
+              Total Subscriptions
+            </div>
+          </StatCard>
 
-      <ContentGrid>
-        <MainContent>
-          <TableHeader>
-            <TableTitle>Your Subscriptions</TableTitle>
-            <FilterButton onClick={() => {
-              const filters = ['all', 'active', 'due_soon', 'paused']
-              const currentIndex = filters.indexOf(filter)
-              const nextIndex = (currentIndex + 1) % filters.length
-              setFilter(filters[nextIndex])
-            }}>
-              <Filter size={16} />
-              {filter === 'all' ? 'All' : 
-               filter === 'due_soon' ? 'Due Soon' : 
-               filter.charAt(0).toUpperCase() + filter.slice(1)}
-            </FilterButton>
-          </TableHeader>
-          
-          <Table>
-            <TableRow isHeader>
-              <div>Service & Category</div>
-              <div>Amount</div>
-              <div>Frequency</div>
-              <div>Next Billing</div>
-              <div>Status</div>
-              <div>Actions</div>
-            </TableRow>
-            
-            {filteredSubscriptions.length === 0 ? (
-              <EmptyState>
-                <EmptyStateIcon>
-                  <CreditCard size={32} />
-                </EmptyStateIcon>
-                <h3>No subscriptions found</h3>
-                <p>Add your first subscription to start tracking your recurring expenses</p>
-              </EmptyState>
-            ) : (
-              filteredSubscriptions.map((subscription) => (
-                <TableRow key={subscription.id}>
-                  <div>
-                    <div style={{ fontWeight: '500', color: 'var(--heading-primary)', marginBottom: '0.25rem' }}>
-                      {subscription.name}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <CategoryBadge category={subscription.category}>
+          <StatCard color="var(--success-500)">
+            <StatHeader>
+              <StatIcon color="var(--success-500)">
+                <DollarSign />
+              </StatIcon>
+            </StatHeader>
+            <StatValue>${stats.monthlyTotal.toFixed(2)}</StatValue>
+            <div style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>
+              Monthly Total
+            </div>
+          </StatCard>
+
+          <StatCard color="var(--warning-500)">
+            <StatHeader>
+              <StatIcon color="var(--warning-500)">
+                <TrendingUp />
+              </StatIcon>
+            </StatHeader>
+            <StatValue>${stats.yearlyTotal.toFixed(2)}</StatValue>
+            <div style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>
+              Yearly Total
+            </div>
+          </StatCard>
+
+          <StatCard color="var(--info-500)">
+            <StatHeader>
+              <StatIcon color="var(--info-500)">
+                <Play />
+              </StatIcon>
+            </StatHeader>
+            <StatValue>{stats.activeSubscriptions}</StatValue>
+            <div style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>
+              Active Subscriptions
+            </div>
+          </StatCard>
+        </StatsGrid>
+
+        <ContentGrid>
+          <MainContent>
+            <TableHeader>
+              <TableTitle>All Subscriptions</TableTitle>
+              <FilterButton>
+                <Filter size={16} />
+                Filter
+              </FilterButton>
+            </TableHeader>
+
+            <Table>
+              <TableRow isHeader>
+                <div>Service</div>
+                <div>Cost</div>
+                <div>Billing</div>
+                <div>Next Bill</div>
+                <div>Status</div>
+                <div>Actions</div>
+              </TableRow>
+
+              {subscriptions.length === 0 ? (
+                <EmptyState>
+                  <EmptyStateIcon>
+                    <CreditCard />
+                  </EmptyStateIcon>
+                  <h3 style={{ margin: '0 0 8px 0', color: 'rgba(255, 255, 255, 0.8)' }}>
+                    No subscriptions found
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '14px' }}>
+                    Add your first subscription to start tracking expenses
+                  </p>
+                </EmptyState>
+              ) : (
+                subscriptions.map((subscription) => (
+                  <TableRow key={subscription.id}>
+                    <div>
+                      <div style={{ fontWeight: '500', color: 'white', marginBottom: '4px' }}>
+                        {subscription.service_name}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.6)' }}>
                         {subscription.category}
-                      </CategoryBadge>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        {subscription.vendor}
-                      </span>
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ fontWeight: '500' }}>
-                    {formatCurrency(subscription.amount, subscription.currency)}
-                  </div>
-                  <div>
-                    {formatFrequency(subscription.billing_frequency, subscription.billing_interval)}
-                  </div>
-                  <div>
-                    <div>{formatDate(subscription.next_billing_date)}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      {getDaysUntilRenewal(subscription.next_billing_date)} days
+                    <div style={{ fontWeight: '500', color: 'white' }}>
+                      ${subscription.cost.toFixed(2)}
                     </div>
-                  </div>
-                  <div>
-                    <StatusBadge status={getSubscriptionStatus(subscription)}>
-                      {getSubscriptionStatus(subscription) === 'active' && (
-                        <>
-                          <Play size={12} />
-                          Active
-                        </>
-                      )}
-                      {getSubscriptionStatus(subscription) === 'paused' && (
-                        <>
-                          <Pause size={12} />
-                          Paused
-                        </>
-                      )}
-                      {getSubscriptionStatus(subscription) === 'due_soon' && (
-                        <>
-                          <AlertTriangle size={12} />
-                          Due Soon
-                        </>
-                      )}
-                    </StatusBadge>
-                  </div>
-                  <ActionButtonsGroup>
-                    <IconButton variant="edit" title="Edit Subscription">
-                      <Edit size={16} />
-                    </IconButton>
-                    {subscription.website_url && (
-                      <IconButton 
-                        variant="external" 
-                        title="Visit Website"
-                        onClick={() => window.open(subscription.website_url, '_blank')}
+                    <div style={{ textTransform: 'capitalize' }}>
+                      {subscription.billing_cycle}
+                    </div>
+                    <div>
+                      {new Date(subscription.next_billing_date).toLocaleDateString()}
+                    </div>
+                    <div>
+                      <StatusBadge status={subscription.status}>
+                        {subscription.status}
+                      </StatusBadge>
+                    </div>
+                    <ActionButtonsGroup>
+                      <IconButton
+                        variant="action"
+                        onClick={() => toggleSubscriptionStatus(subscription.id, subscription.status)}
+                        title={subscription.status === 'active' ? 'Pause' : 'Resume'}
                       >
-                        <ExternalLink size={16} />
+                        {subscription.status === 'active' ? <Pause /> : <Play />}
                       </IconButton>
-                    )}
-                    <IconButton 
-                      variant="toggle" 
-                      title={subscription.is_active ? 'Pause Subscription' : 'Activate Subscription'}
-                      onClick={() => toggleSubscription(subscription.id, subscription.is_active)}
-                    >
-                      {subscription.is_active ? <Pause size={16} /> : <Play size={16} />}
-                    </IconButton>
-                    <IconButton 
-                      variant="delete" 
-                      title="Delete Subscription"
-                      onClick={() => deleteSubscription(subscription.id)}
-                    >
-                      <Trash2 size={16} />
-                    </IconButton>
-                  </ActionButtonsGroup>
-                </TableRow>
-              ))
-            )}
-          </Table>
-        </MainContent>
+                      <IconButton variant="edit" title="Edit">
+                        <Edit />
+                      </IconButton>
+                      <IconButton
+                        variant="delete"
+                        onClick={() => handleDeleteSubscription(subscription.id)}
+                        title="Delete"
+                      >
+                        <Trash2 />
+                      </IconButton>
+                    </ActionButtonsGroup>
+                  </TableRow>
+                ))
+              )}
+            </Table>
+          </MainContent>
 
-        <Sidebar>
-          <SidebarCard>
-            <SidebarTitle>Quick Actions</SidebarTitle>
-            <QuickAction>
-              <Plus size={20} />
-              <div>
-                <div style={{ fontWeight: '500' }}>Add Subscription</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Track a new recurring expense
-                </div>
-              </div>
-            </QuickAction>
-            <QuickAction>
-              <Bell size={20} />
-              <div>
-                <div style={{ fontWeight: '500' }}>Notification Settings</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Configure renewal reminders
-                </div>
-              </div>
-            </QuickAction>
-            <QuickAction>
-              <Settings size={20} />
-              <div>
-                <div style={{ fontWeight: '500' }}>Categories</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Manage subscription categories
-                </div>
-              </div>
-            </QuickAction>
-          </SidebarCard>
+          <Sidebar>
+            <SidebarCard>
+              <SidebarTitle>Quick Actions</SidebarTitle>
+              <QuickAction>
+                <Plus />
+                Add New Subscription
+              </QuickAction>
+              <QuickAction>
+                <Bell />
+                Set Billing Reminders
+              </QuickAction>
+              <QuickAction>
+                <Settings />
+                Manage Categories
+              </QuickAction>
+              <QuickAction>
+                <ExternalLink />
+                Export Data
+              </QuickAction>
+            </SidebarCard>
 
-          <SidebarCard>
-            <SidebarTitle>Upcoming Renewals</SidebarTitle>
-            {upcomingRenewals.length === 0 ? (
-              <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                No renewals in the next 30 days
-              </div>
-            ) : (
-              upcomingRenewals.map((subscription) => {
-                const daysUntil = getDaysUntilRenewal(subscription.next_billing_date)
-                return (
-                  <UpcomingRenewal key={subscription.id} daysUntil={daysUntil}>
-                    <div style={{ fontWeight: '500', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                      {subscription.name}
+            <SidebarCard>
+              <SidebarTitle>Upcoming Bills</SidebarTitle>
+              {subscriptions
+                .filter(sub => sub.status === 'active')
+                .sort((a, b) => new Date(a.next_billing_date).getTime() - new Date(b.next_billing_date).getTime())
+                .slice(0, 3)
+                .map(sub => (
+                  <div key={sub.id} style={{ 
+                    padding: '12px 0', 
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div>
+                      <div style={{ color: 'white', fontSize: '14px', fontWeight: '500' }}>
+                        {sub.service_name}
+                      </div>
+                      <div style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '12px' }}>
+                        {new Date(sub.next_billing_date).toLocaleDateString()}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      {formatCurrency(subscription.amount)} • {daysUntil} days
+                    <div style={{ color: 'white', fontWeight: '600' }}>
+                      ${sub.cost.toFixed(2)}
                     </div>
-                  </UpcomingRenewal>
-                )
-              })
-            )}
-          </SidebarCard>
-        </Sidebar>
-      </ContentGrid>
-    </PageContainer>
+                  </div>
+                ))}
+              {subscriptions.filter(sub => sub.status === 'active').length === 0 && (
+                <div style={{ 
+                  color: 'rgba(255, 255, 255, 0.6)', 
+                  fontSize: '14px', 
+                  textAlign: 'center',
+                  padding: '20px 0'
+                }}>
+                  No upcoming bills
+                </div>
+              )}
+            </SidebarCard>
+          </Sidebar>
+        </ContentGrid>
+      </Container>
     </DashboardLayout>
   )
 }

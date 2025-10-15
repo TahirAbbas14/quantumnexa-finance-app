@@ -192,6 +192,47 @@ BEGIN
         RAISE NOTICE 'RLS disabled for report_exports';
     END IF;
     
+    -- Employee Payroll Tables
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'employees') THEN
+        ALTER TABLE employees DISABLE ROW LEVEL SECURITY;
+        RAISE NOTICE 'RLS disabled for employees';
+    END IF;
+    
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'employee_benefits') THEN
+        ALTER TABLE employee_benefits DISABLE ROW LEVEL SECURITY;
+        RAISE NOTICE 'RLS disabled for employee_benefits';
+    END IF;
+    
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'employee_deductions') THEN
+        ALTER TABLE employee_deductions DISABLE ROW LEVEL SECURITY;
+        RAISE NOTICE 'RLS disabled for employee_deductions';
+    END IF;
+    
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'time_tracking') THEN
+        ALTER TABLE time_tracking DISABLE ROW LEVEL SECURITY;
+        RAISE NOTICE 'RLS disabled for time_tracking';
+    END IF;
+    
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'employee_leaves') THEN
+        ALTER TABLE employee_leaves DISABLE ROW LEVEL SECURITY;
+        RAISE NOTICE 'RLS disabled for employee_leaves';
+    END IF;
+    
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'payroll') THEN
+        ALTER TABLE payroll DISABLE ROW LEVEL SECURITY;
+        RAISE NOTICE 'RLS disabled for payroll';
+    END IF;
+    
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'payroll_items') THEN
+        ALTER TABLE payroll_items DISABLE ROW LEVEL SECURITY;
+        RAISE NOTICE 'RLS disabled for payroll_items';
+    END IF;
+    
+    IF EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'attendance_summary') THEN
+        ALTER TABLE attendance_summary DISABLE ROW LEVEL SECURITY;
+        RAISE NOTICE 'RLS disabled for attendance_summary';
+    END IF;
+    
 END $$;
 
 -- =====================================================

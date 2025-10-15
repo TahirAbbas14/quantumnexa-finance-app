@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 console.log("Testing database connection and data availability...");
 
 const { createClient } = require("@supabase/supabase-js");

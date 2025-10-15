@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import styled from 'styled-components'
 import { createSupabaseClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -232,15 +232,11 @@ export default function RecentInvoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
+
   const supabase = createSupabaseClient()
 
-  useEffect(() => {
-    if (user) {
-      fetchRecentInvoices()
-    }
-  }, [user])
 
-  const fetchRecentInvoices = async () => {
+  const fetchRecentInvoices = useCallback(async () => {
     try {
       if (!supabase) {
         console.error('Supabase client is not available');
@@ -267,17 +263,27 @@ export default function RecentInvoices() {
 
       if (error) throw error
       setInvoices(
-        (data || []).map((item) => ({
-          ...item,
-          clients: item.clients?.[0] ?? { name: '' }
-        }))
+        (data || []).map((item) => {
+          const client = Array.isArray(item.clients) ? item.clients[0] : item.clients
+          return {
+            ...item,
+            clients: client ?? { name: '' }
+          }
+        })
       )
     } catch (error) {
       console.error('Error fetching invoices:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [user, supabase])
+
+  useEffect(() => {
+    if (user) {
+      fetchRecentInvoices()
+    }
+  }, [user, fetchRecentInvoices])
+
 
   if (loading) {
     return (

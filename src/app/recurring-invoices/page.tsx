@@ -15,412 +15,504 @@ import {
   Pause, 
   FileText,
   DollarSign,
-  User,
+
   Settings,
   Download,
   Filter
 } from 'lucide-react'
 
-// Styled Components
-const PageContainer = styled.div`
-  padding: 2rem;
+// Styled Components - Dashboard Theme
+const Container = styled.div`
+  padding: 32px;
   max-width: 1400px;
   margin: 0 auto;
-`
+
+  @media (max-width: 768px) {
+    padding: 16px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 12px;
+  }
+`;
 
 const Header = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-  gap: 1rem;
-`
+  margin-bottom: 40px;
 
-const Title = styled.h1`
-  font-size: 2rem;
-  font-weight: bold;
-  color: var(--heading-primary);
-  margin: 0;
-`
+  @media (max-width: 768px) {
+    margin-bottom: 24px;
+  }
 
-const ActionButtons = styled.div`
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 8px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    @media (max-width: 768px) {
+      font-size: 24px;
+      margin-bottom: 6px;
+    }
+
+    @media (max-width: 480px) {
+      font-size: 20px;
+    }
+  }
+
+  p {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.8);
+
+    @media (max-width: 768px) {
+      font-size: 14px;
+    }
+
+    @media (max-width: 480px) {
+      font-size: 13px;
+    }
+  }
+`;
+
+const HeaderActions = styled.div`
   display: flex;
   gap: 1rem;
   align-items: center;
-`
+  margin-top: 1rem;
+`;
 
 const Button = styled.button<{ variant?: 'primary' | 'secondary' | 'danger' }>`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 1rem;
   border-radius: 8px;
   font-weight: 500;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  border: none;
   font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  position: relative;
+  overflow: hidden;
 
   ${props => {
     switch (props.variant) {
       case 'primary':
         return `
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+          background: var(--primary-600);
           color: white;
-          box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
           
           &:hover {
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
-            transform: translateY(-1px);
+            background: var(--primary-700);
+            transform: translateY(-2px);
           }
-          
-          &:active {
-            transform: translateY(0);
-          }
-        `
+        `;
       case 'secondary':
         return `
-          background: var(--card-background);
-          color: var(--text-primary);
-          border: 1px solid var(--border-color);
+          background: rgba(255, 255, 255, 0.1);
+          color: white;
+          border: 1px solid rgba(255, 255, 255, 0.2);
           
           &:hover {
-            background: rgba(239, 68, 68, 0.05);
-            border-color: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
           }
-        `
+        `;
       case 'danger':
         return `
-          background: #dc2626;
+          background: var(--error-600);
           color: white;
           
           &:hover {
-            background: #b91c1c;
+            background: var(--error-700);
+            transform: translateY(-2px);
           }
-        `
+        `;
       default:
         return `
-          background: var(--card-background);
-          color: var(--text-primary);
-          border: 1px solid var(--border-color);
+          background: rgba(255, 255, 255, 0.1);
+          color: white;
+          border: 1px solid rgba(255, 255, 255, 0.2);
           
           &:hover {
-            background: rgba(239, 68, 68, 0.05);
-            border-color: rgba(239, 68, 68, 0.2);
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
           }
-        `
+        `;
     }
   }}
-`
+`;
 
 const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-`
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
 
-const StatCard = styled.div`
-  background: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.5rem;
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+`;
+
+const StatCard = styled.div<{ color?: string }>`
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
-  transition: all 0.2s ease;
-
+  
   &::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    height: 4px;
+    background: ${props => props.color || 'var(--primary-500)'};
   }
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-    border-color: rgba(239, 68, 68, 0.2);
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
   }
-`
+`;
 
-const StatValue = styled.div`
-  font-size: 2rem;
-  font-weight: bold;
-  color: var(--heading-primary);
-  margin-bottom: 0.5rem;
-`
-
-const StatLabel = styled.div`
-  color: var(--text-secondary);
-  font-size: 0.875rem;
+const StatHeader = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-`
+  justify-content: space-between;
+  margin-bottom: 16px;
+`;
+
+const StatIcon = styled.div<{ $color?: string }>`
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: ${props => props.$color || 'var(--primary-100)'};
+  color: ${props => props.$color?.replace('100', '600') || 'var(--primary-600)'};
+
+  @media (max-width: 480px) {
+    width: 40px;
+    height: 40px;
+  }
+`;
+
+const StatValue = styled.div`
+  h3 {
+    font-size: 28px;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 4px;
+
+    @media (max-width: 768px) {
+      font-size: 24px;
+    }
+
+    @media (max-width: 480px) {
+      font-size: 20px;
+    }
+  }
+  
+  p {
+    font-size: 14px;
+    color: var(--gray-300);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    @media (max-width: 480px) {
+      font-size: 12px;
+    }
+  }
+`;
 
 const ContentGrid = styled.div`
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
   
-  @media (min-width: 1200px) {
-    grid-template-columns: 2fr 1fr;
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
   }
-`
+
+  @media (max-width: 768px) {
+    gap: 16px;
+  }
+`;
 
 const MainContent = styled.div`
-  background: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
-
-  &:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  }
-`
+`;
 
 const TableHeader = styled.div`
-  background: rgba(239, 68, 68, 0.05);
-  border-bottom: 1px solid var(--border-color);
-  padding: 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-`
+  padding: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+`;
 
 const TableTitle = styled.h2`
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--heading-primary);
+  font-size: 20px;
+  font-weight: 700;
+  color: white;
   margin: 0;
-`
+`;
 
 const FilterButton = styled.button`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-secondary);
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  font-weight: 500;
   
   &:hover {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.3);
-    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
   }
-`
+`;
 
 const Table = styled.div`
   overflow-x: auto;
-`
+`;
 
 const TableRow = styled.div<{ isHeader?: boolean }>`
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 120px;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 140px;
+  gap: 1.5rem;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   align-items: center;
+  transition: all 0.2s ease;
   
   ${props => props.isHeader && `
-    background: rgba(239, 68, 68, 0.02);
+    background: rgba(255, 255, 255, 0.05);
     font-weight: 600;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   `}
   
   &:last-child {
     border-bottom: none;
   }
-  
+
   &:hover:not(:first-child) {
-    background: rgba(239, 68, 68, 0.02);
+    background: rgba(255, 255, 255, 0.05);
   }
-`
+`;
 
 const StatusBadge = styled.span<{ status: string }>`
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  border-radius: 25px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   
   ${props => {
     switch (props.status) {
       case 'active':
         return `
           background: rgba(34, 197, 94, 0.1);
-          color: #16a34a;
+          color: #22c55e;
           border: 1px solid rgba(34, 197, 94, 0.2);
         `;
-      case 'paused':
+      case 'inactive':
         return `
-          background: rgba(251, 191, 36, 0.1);
-          color: #d97706;
-          border: 1px solid rgba(251, 191, 36, 0.2);
-        `;
-      case 'ended':
-        return `
-          background: rgba(107, 114, 128, 0.1);
-          color: #6b7280;
-          border: 1px solid rgba(107, 114, 128, 0.2);
+          background: rgba(156, 163, 175, 0.1);
+          color: #9ca3af;
+          border: 1px solid rgba(156, 163, 175, 0.2);
         `;
       default:
         return `
-          background: rgba(239, 68, 68, 0.1);
-          color: #dc2626;
-          border: 1px solid rgba(239, 68, 68, 0.2);
+          background: rgba(156, 163, 175, 0.1);
+          color: #9ca3af;
+          border: 1px solid rgba(156, 163, 175, 0.2);
         `;
     }
   }}
-`
+`;
 
 const ActionButtonsGroup = styled.div`
   display: flex;
   gap: 0.5rem;
-  justify-content: flex-end;
-`
+  align-items: center;
+`;
 
 const IconButton = styled.button<{ variant?: 'edit' | 'delete' | 'toggle' }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid transparent;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.1);
   
   ${props => {
     switch (props.variant) {
       case 'edit':
         return `
-          background: rgba(59, 130, 246, 0.1);
           color: #3b82f6;
-          
           &:hover {
-            background: rgba(59, 130, 246, 0.2);
+            background: rgba(59, 130, 246, 0.1);
             border-color: rgba(59, 130, 246, 0.3);
           }
         `;
       case 'delete':
         return `
-          background: rgba(239, 68, 68, 0.1);
           color: #ef4444;
-          
           &:hover {
-            background: rgba(239, 68, 68, 0.2);
+            background: rgba(239, 68, 68, 0.1);
             border-color: rgba(239, 68, 68, 0.3);
           }
         `;
       case 'toggle':
         return `
-          background: rgba(34, 197, 94, 0.1);
-          color: #22c55e;
-          
+          color: #10b981;
           &:hover {
-            background: rgba(34, 197, 94, 0.2);
-            border-color: rgba(34, 197, 94, 0.3);
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
           }
         `;
       default:
         return `
-          background: rgba(107, 114, 128, 0.1);
-          color: #6b7280;
-          
+          color: white;
           &:hover {
-            background: rgba(107, 114, 128, 0.2);
-            border-color: rgba(107, 114, 128, 0.3);
+            background: rgba(255, 255, 255, 0.2);
           }
         `;
     }
   }}
-`
+`;
+
+const EmptyState = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: white;
+    margin: 1rem 0 0.5rem 0;
+  }
+  
+  p {
+    font-size: 0.875rem;
+    margin: 0;
+    max-width: 400px;
+  }
+`;
+
+const EmptyStateIcon = styled.div`
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 1rem;
+`;
 
 const Sidebar = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-`
+  gap: 24px;
+`;
 
 const SidebarCard = styled.div`
-  background: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
-
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  
   &:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-    border-color: rgba(239, 68, 68, 0.2);
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
   }
-`
+`;
 
 const SidebarTitle = styled.h3`
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--heading-primary);
-  margin: 0 0 1rem 0;
-`
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 16px 0;
+`;
 
 const QuickAction = styled.button`
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
   width: 100%;
-  padding: 0.75rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  color: var(--text-primary);
   cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: 0.5rem;
-
+  transition: all 0.3s ease;
+  text-align: left;
+  margin-bottom: 8px;
+  color: white;
+  
   &:hover {
-    background: rgba(239, 68, 68, 0.05);
-    border-color: rgba(239, 68, 68, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
     transform: translateX(4px);
   }
-
+  
   &:last-child {
     margin-bottom: 0;
   }
-`
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: 3rem 1.5rem;
-  color: var(--text-secondary);
-`
-
-const EmptyStateIcon = styled.div`
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 1rem;
-  background: rgba(239, 68, 68, 0.1);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ef4444;
-`
+  
+  svg {
+    color: var(--primary-500);
+    flex-shrink: 0;
+  }
+`;
 
 // Types
 interface RecurringInvoiceTemplate {
@@ -544,8 +636,6 @@ export default function RecurringInvoicesPage() {
 
     fetchData()
   }, [user?.id])
-
-
 
   const formatCurrency = (amount: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
@@ -680,211 +770,228 @@ export default function RecurringInvoicesPage() {
   if (loading) {
     return (
       <DashboardLayout>
-        <PageContainer>
+        <Container>
           <div>Loading...</div>
-        </PageContainer>
+        </Container>
       </DashboardLayout>
     )
   }
 
   return (
     <DashboardLayout>
-      <PageContainer id="recurring-invoices-content">
-      <Header>
-        <Title>Recurring Invoices</Title>
-        <ActionButtons>
-          <Button variant="secondary">
-            <Download size={20} />
-            Export
-          </Button>
-          <Button variant="primary">
-            <Plus size={20} />
-            New Template
-          </Button>
-        </ActionButtons>
-      </Header>
-
-      <StatsGrid>
-        <StatCard>
-          <StatValue>{stats.activeTemplates}</StatValue>
-          <StatLabel>
-            <FileText size={16} />
-            Active Templates
-          </StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{formatCurrency(stats.totalMonthlyValue)}</StatValue>
-          <StatLabel>
-            <DollarSign size={16} />
-            Monthly Recurring Value
-          </StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{stats.nextInvoicesDue}</StatValue>
-          <StatLabel>
-            <Calendar size={16} />
-            Due This Week
-          </StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{stats.generatedThisMonth}</StatValue>
-          <StatLabel>
-            <Clock size={16} />
-            Generated This Month
-          </StatLabel>
-        </StatCard>
-      </StatsGrid>
-
-      <ContentGrid>
-        <MainContent>
-          <TableHeader>
-            <TableTitle>Invoice Templates</TableTitle>
-            <FilterButton onClick={() => setFilter(filter === 'all' ? 'active' : 'all')}>
-              <Filter size={16} />
-              {filter === 'all' ? 'All' : 'Active Only'}
-            </FilterButton>
-          </TableHeader>
-          
-          <Table>
-            <TableRow isHeader>
-              <div>Template & Client</div>
-              <div>Amount</div>
-              <div>Frequency</div>
-              <div>Next Invoice</div>
-              <div>Status</div>
-              <div>Actions</div>
-            </TableRow>
-            
-            {filteredTemplates.length === 0 ? (
-              <EmptyState>
-                <EmptyStateIcon>
-                  <FileText size={32} />
-                </EmptyStateIcon>
-                <h3>No recurring invoice templates</h3>
-                <p>Create your first template to start generating automatic invoices</p>
-              </EmptyState>
-            ) : (
-              filteredTemplates.map((template) => (
-                <TableRow key={template.id}>
-                  <div>
-                    <div style={{ fontWeight: '500', color: 'var(--heading-primary)' }}>
-                      {template.template_name}
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                      {template.client_name || 'No client assigned'}
-                    </div>
-                  </div>
-                  <div style={{ fontWeight: '500' }}>
-                    {formatCurrency(template.amount, template.currency)}
-                  </div>
-                  <div>
-                    {formatFrequency(template.frequency, template.frequency_interval)}
-                  </div>
-                  <div>
-                    {formatDate(template.next_invoice_date)}
-                  </div>
-                  <div>
-                    <StatusBadge status={template.is_active ? 'active' : 'paused'}>
-                      {template.is_active ? (
-                        <>
-                          <Play size={12} />
-                          Active
-                        </>
-                      ) : (
-                        <>
-                          <Pause size={12} />
-                          Paused
-                        </>
-                      )}
-                    </StatusBadge>
-                  </div>
-                  <ActionButtonsGroup>
-                    <IconButton
-                      variant="toggle"
-                      onClick={() => toggleTemplate(template.id, template.is_active)}
-                      title={template.is_active ? 'Pause Template' : 'Activate Template'}
-                    >
-                      {template.is_active ? <Pause size={16} /> : <Play size={16} />}
-                    </IconButton>
-                    <IconButton
-                      variant="edit"
-                      onClick={() => {/* TODO: Implement edit functionality */}}
-                      title="Edit Template"
-                    >
-                      <Edit size={16} />
-                    </IconButton>
-                    <IconButton
-                      variant="delete"
-                      onClick={() => deleteTemplate(template.id)}
-                      title="Delete Template"
-                    >
-                      <Trash2 size={16} />
-                    </IconButton>
-                  </ActionButtonsGroup>
-                </TableRow>
-              ))
-            )}
-          </Table>
-        </MainContent>
-
-        <Sidebar>
-          <SidebarCard>
-            <SidebarTitle>Quick Actions</SidebarTitle>
-            <QuickAction>
+      <Container>
+        <Header>
+          <h1>Recurring Invoices</h1>
+          <p>Manage your recurring invoice templates and automation</p>
+          <HeaderActions>
+            <Button variant="secondary">
+              <Download size={20} />
+              Export
+            </Button>
+            <Button variant="primary">
               <Plus size={20} />
-              <div>
-                <div style={{ fontWeight: '500' }}>Create Template</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Set up a new recurring invoice
-                </div>
-              </div>
-            </QuickAction>
-            <QuickAction>
-              <Settings size={20} />
-              <div>
-                <div style={{ fontWeight: '500' }}>Automation Settings</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Configure auto-send options
-                </div>
-              </div>
-            </QuickAction>
-            <QuickAction>
-              <Calendar size={20} />
-              <div>
-                <div style={{ fontWeight: '500' }}>Schedule Preview</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  View upcoming invoices
-                </div>
-              </div>
-            </QuickAction>
-          </SidebarCard>
+              New Template
+            </Button>
+          </HeaderActions>
+        </Header>
 
-          <SidebarCard>
-            <SidebarTitle>Recent Activity</SidebarTitle>
-            <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-              <div style={{ marginBottom: '0.75rem' }}>
-                <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
-                  Invoice #INV-2024-001 generated
+        <StatsGrid>
+          <StatCard>
+            <StatHeader>
+              <StatIcon>
+                <FileText size={24} />
+              </StatIcon>
+            </StatHeader>
+            <StatValue>
+              <h3>{stats.activeTemplates}</h3>
+              <p>Active Templates</p>
+            </StatValue>
+          </StatCard>
+          <StatCard>
+            <StatHeader>
+              <StatIcon>
+                <DollarSign size={24} />
+              </StatIcon>
+            </StatHeader>
+            <StatValue>
+              <h3>{formatCurrency(stats.totalMonthlyValue)}</h3>
+              <p>Monthly Recurring Value</p>
+            </StatValue>
+          </StatCard>
+          <StatCard>
+            <StatHeader>
+              <StatIcon>
+                <Calendar size={24} />
+              </StatIcon>
+            </StatHeader>
+            <StatValue>
+              <h3>{stats.nextInvoicesDue}</h3>
+              <p>Due This Week</p>
+            </StatValue>
+          </StatCard>
+          <StatCard>
+            <StatHeader>
+              <StatIcon>
+                <Clock size={24} />
+              </StatIcon>
+            </StatHeader>
+            <StatValue>
+              <h3>{stats.generatedThisMonth}</h3>
+              <p>Generated This Month</p>
+            </StatValue>
+          </StatCard>
+        </StatsGrid>
+
+        <ContentGrid>
+          <MainContent>
+            <TableHeader>
+              <TableTitle>Invoice Templates</TableTitle>
+              <FilterButton onClick={() => setFilter(filter === 'all' ? 'active' : 'all')}>
+                <Filter size={16} />
+                {filter === 'all' ? 'All' : 'Active Only'}
+              </FilterButton>
+            </TableHeader>
+            
+            <Table>
+              <TableRow isHeader>
+                <div>Template & Client</div>
+                <div>Amount</div>
+                <div>Frequency</div>
+                <div>Next Invoice</div>
+                <div>Status</div>
+                <div>Actions</div>
+              </TableRow>
+              
+              {filteredTemplates.length === 0 ? (
+                <EmptyState>
+                  <EmptyStateIcon>
+                    <FileText size={32} />
+                  </EmptyStateIcon>
+                  <h3>No recurring invoice templates</h3>
+                  <p>Create your first template to start generating automatic invoices</p>
+                </EmptyState>
+              ) : (
+                filteredTemplates.map((template) => (
+                  <TableRow key={template.id}>
+                    <div>
+                      <div style={{ fontWeight: '500', color: 'white' }}>
+                        {template.template_name}
+                      </div>
+                      <div style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+                        {template.client_name || 'No client assigned'}
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: '500', color: 'white' }}>
+                      {formatCurrency(template.amount, template.currency)}
+                    </div>
+                    <div style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                      {formatFrequency(template.frequency, template.frequency_interval)}
+                    </div>
+                    <div style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                      {formatDate(template.next_invoice_date)}
+                    </div>
+                    <div>
+                      <StatusBadge status={template.is_active ? 'active' : 'inactive'}>
+                        {template.is_active ? (
+                          <>
+                            <Play size={12} />
+                            Active
+                          </>
+                        ) : (
+                          <>
+                            <Pause size={12} />
+                            Paused
+                          </>
+                        )}
+                      </StatusBadge>
+                    </div>
+                    <ActionButtonsGroup>
+                      <IconButton
+                        variant="toggle"
+                        onClick={() => toggleTemplate(template.id, template.is_active)}
+                        title={template.is_active ? 'Pause Template' : 'Activate Template'}
+                      >
+                        {template.is_active ? <Pause size={16} /> : <Play size={16} />}
+                      </IconButton>
+                      <IconButton
+                        variant="edit"
+                        onClick={() => {/* TODO: Implement edit functionality */}}
+                        title="Edit Template"
+                      >
+                        <Edit size={16} />
+                      </IconButton>
+                      <IconButton
+                        variant="delete"
+                        onClick={() => deleteTemplate(template.id)}
+                        title="Delete Template"
+                      >
+                        <Trash2 size={16} />
+                      </IconButton>
+                    </ActionButtonsGroup>
+                  </TableRow>
+                ))
+              )}
+            </Table>
+          </MainContent>
+
+          <Sidebar>
+            <SidebarCard>
+              <SidebarTitle>Quick Actions</SidebarTitle>
+              <QuickAction>
+                <Plus size={20} />
+                <div>
+                  <div style={{ fontWeight: '500' }}>Create Template</div>
+                  <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+                    Set up a new recurring invoice
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.75rem' }}>2 hours ago</div>
-              </div>
-              <div style={{ marginBottom: '0.75rem' }}>
-                <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
-                  Template &quot;Monthly Retainer&quot; updated
+              </QuickAction>
+              <QuickAction>
+                <Settings size={20} />
+                <div>
+                  <div style={{ fontWeight: '500' }}>Automation Settings</div>
+                  <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+                    Configure auto-send options
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.75rem' }}>1 day ago</div>
-              </div>
-              <div>
-                <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>
-                  New template created
+              </QuickAction>
+              <QuickAction>
+                <Calendar size={20} />
+                <div>
+                  <div style={{ fontWeight: '500' }}>Schedule Preview</div>
+                  <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+                    View upcoming invoices
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.75rem' }}>3 days ago</div>
+              </QuickAction>
+            </SidebarCard>
+
+            <SidebarCard>
+              <SidebarTitle>Recent Activity</SidebarTitle>
+              <div style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <div style={{ fontWeight: '500', color: 'white' }}>
+                    Invoice #INV-2024-001 generated
+                  </div>
+                  <div style={{ fontSize: '0.75rem' }}>2 hours ago</div>
+                </div>
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <div style={{ fontWeight: '500', color: 'white' }}>
+                    Template &quot;Monthly Retainer&quot; updated
+                  </div>
+                  <div style={{ fontSize: '0.75rem' }}>1 day ago</div>
+                </div>
+                <div>
+                  <div style={{ fontWeight: '500', color: 'white' }}>
+                    New template created
+                  </div>
+                  <div style={{ fontSize: '0.75rem' }}>3 days ago</div>
+                </div>
               </div>
-            </div>
-          </SidebarCard>
-        </Sidebar>
-      </ContentGrid>
-    </PageContainer>
+            </SidebarCard>
+          </Sidebar>
+        </ContentGrid>
+      </Container>
     </DashboardLayout>
   )
 }

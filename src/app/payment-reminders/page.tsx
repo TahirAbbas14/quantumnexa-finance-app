@@ -29,78 +29,115 @@ import {
   Zap
 } from 'lucide-react'
 
-// Styled Components (reusing similar styles from other pages)
-const PageContainer = styled.div`
+// Styled Components matching dashboard design
+const Container = styled.div`
   padding: 2rem;
   max-width: 1400px;
   margin: 0 auto;
+  
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
 `
 
 const Header = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 2rem;
-  flex-wrap: wrap;
   gap: 1rem;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95);
+    margin: 0;
+    
+    @media (max-width: 768px) {
+      font-size: 1.75rem;
+    }
+  }
+  
+  p {
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0.5rem 0 0 0;
+    font-size: 1rem;
+  }
 `
 
-const Title = styled.h1`
-  font-size: 2rem;
-  font-weight: bold;
-  color: var(--heading-primary);
-  margin: 0;
-`
-
-const ActionButtons = styled.div`
+const HeaderActions = styled.div`
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: center;
+  
+  @media (max-width: 768px) {
+    justify-content: stretch;
+    
+    > * {
+      flex: 1;
+    }
+  }
 `
 
 const Button = styled.button<{ variant?: 'primary' | 'secondary' | 'danger' }>`
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   padding: 0.75rem 1.5rem;
-  border-radius: 8px;
+  border-radius: 12px;
   font-weight: 500;
-  transition: all 0.2s ease;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
   cursor: pointer;
+  border: none;
+  white-space: nowrap;
   
   ${props => {
     switch (props.variant) {
       case 'primary':
         return `
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+          background: rgba(99, 102, 241, 0.8);
           color: white;
-          border: 1px solid rgba(239, 68, 68, 0.3);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(99, 102, 241, 0.3);
           
           &:hover {
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+            background: rgba(99, 102, 241, 0.9);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
           }
         `;
       case 'danger':
         return `
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+          background: rgba(239, 68, 68, 0.8);
           color: white;
+          backdrop-filter: blur(10px);
           border: 1px solid rgba(239, 68, 68, 0.3);
           
           &:hover {
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            background: rgba(239, 68, 68, 0.9);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
           }
         `;
       default:
         return `
-          background: rgba(239, 68, 68, 0.1);
-          color: var(--text-primary);
-          border: 1px solid rgba(239, 68, 68, 0.2);
+          background: rgba(255, 255, 255, 0.05);
+          color: rgba(255, 255, 255, 0.8);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           
           &:hover {
-            background: rgba(239, 68, 68, 0.2);
-            border-color: rgba(239, 68, 68, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.95);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
           }
         `;
     }
@@ -109,16 +146,24 @@ const Button = styled.button<{ variant?: 'primary' | 'secondary' | 'danger' }>`
 
 const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 `
 
-const StatCard = styled.div`
-  background: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.5rem;
+const StatCard = styled.div<{ color?: string }>`
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
   
@@ -128,24 +173,47 @@ const StatCard = styled.div`
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    height: 4px;
+    background: ${props => props.color || 'var(--primary-500)'};
+  }
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
   }
 `
 
+const StatHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+`
+
+const StatIcon = styled.div<{ color?: string }>`
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: ${props => props.color || 'var(--primary-500)'};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 12px ${props => props.color ? `${props.color}40` : 'rgba(239, 68, 68, 0.25)'};
+`
+
 const StatValue = styled.div`
-  font-size: 2rem;
-  font-weight: bold;
-  color: var(--heading-primary);
-  margin-bottom: 0.5rem;
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 4px;
 `
 
 const StatLabel = styled.div`
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.6);
   font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  font-weight: 500;
 `
 
 const ContentGrid = styled.div`
@@ -159,44 +227,55 @@ const ContentGrid = styled.div`
 `
 
 const MainContent = styled.div`
-  background: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
   overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 `
 
 const TableHeader = styled.div`
-  background: rgba(239, 68, 68, 0.05);
-  border-bottom: 1px solid var(--border-color);
-  padding: 1rem 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  
+  @media (max-width: 768px) {
+    padding: 20px;
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
 `
 
 const TableTitle = styled.h2`
-  font-size: 1.25rem;
+  font-size: 20px;
   font-weight: 600;
-  color: var(--heading-primary);
+  color: white;
   margin: 0;
 `
 
 const FilterButton = styled.button`
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-secondary);
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  font-size: 14px;
   
   &:hover {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.3);
-    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
+    transform: translateY(-1px);
   }
 `
 
@@ -211,13 +290,14 @@ const TableRow = styled.div.withConfig({
   grid-template-columns: 2fr 1fr 1fr 1fr 1fr 120px;
   gap: 1rem;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   align-items: center;
+  transition: all 0.2s ease;
 
   ${props => props.isHeader && `
-    background: rgba(239, 68, 68, 0.02);
+    background: rgba(255, 255, 255, 0.02);
     font-weight: 600;
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.7);
     font-size: 0.875rem;
   `}
 
@@ -226,7 +306,13 @@ const TableRow = styled.div.withConfig({
   }
 
   &:hover:not(:first-child) {
-    background: rgba(239, 68, 68, 0.02);
+    background: rgba(255, 255, 255, 0.02);
+  }
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    padding: 1rem;
   }
 `
 
@@ -244,26 +330,26 @@ const PriorityBadge = styled.span<{ priority: string }>`
       case 'high':
         return `
           background: rgba(239, 68, 68, 0.1);
-          color: #dc2626;
+          color: rgba(239, 68, 68, 0.9);
           border: 1px solid rgba(239, 68, 68, 0.2);
         `;
       case 'medium':
         return `
-          background: rgba(251, 191, 36, 0.1);
-          color: #d97706;
-          border: 1px solid rgba(251, 191, 36, 0.2);
+          background: rgba(245, 158, 11, 0.1);
+          color: rgba(245, 158, 11, 0.9);
+          border: 1px solid rgba(245, 158, 11, 0.2);
         `;
       case 'low':
         return `
           background: rgba(34, 197, 94, 0.1);
-          color: #16a34a;
+          color: rgba(34, 197, 94, 0.9);
           border: 1px solid rgba(34, 197, 94, 0.2);
         `;
       default:
         return `
-          background: rgba(107, 114, 128, 0.1);
-          color: #6b7280;
-          border: 1px solid rgba(107, 114, 128, 0.2);
+          background: rgba(156, 163, 175, 0.1);
+          color: rgba(156, 163, 175, 0.9);
+          border: 1px solid rgba(156, 163, 175, 0.2);
         `;
     }
   }}
@@ -283,32 +369,32 @@ const StatusBadge = styled.span<{ status: string }>`
       case 'active':
         return `
           background: rgba(34, 197, 94, 0.1);
-          color: #16a34a;
+          color: rgba(34, 197, 94, 0.9);
           border: 1px solid rgba(34, 197, 94, 0.2);
         `;
       case 'sent':
         return `
-          background: rgba(59, 130, 246, 0.1);
-          color: #3b82f6;
-          border: 1px solid rgba(59, 130, 246, 0.2);
+          background: rgba(99, 102, 241, 0.1);
+          color: rgba(99, 102, 241, 0.9);
+          border: 1px solid rgba(99, 102, 241, 0.2);
         `;
       case 'paused':
         return `
-          background: rgba(251, 191, 36, 0.1);
-          color: #d97706;
-          border: 1px solid rgba(251, 191, 36, 0.2);
+          background: rgba(156, 163, 175, 0.1);
+          color: rgba(156, 163, 175, 0.9);
+          border: 1px solid rgba(156, 163, 175, 0.2);
         `;
       case 'overdue':
         return `
           background: rgba(239, 68, 68, 0.1);
-          color: #dc2626;
+          color: rgba(239, 68, 68, 0.9);
           border: 1px solid rgba(239, 68, 68, 0.2);
         `;
       default:
         return `
-          background: rgba(107, 114, 128, 0.1);
-          color: #6b7280;
-          border: 1px solid rgba(107, 114, 128, 0.2);
+          background: rgba(156, 163, 175, 0.1);
+          color: rgba(156, 163, 175, 0.9);
+          border: 1px solid rgba(156, 163, 175, 0.2);
         `;
     }
   }}
@@ -326,7 +412,7 @@ const IconButton = styled.button<{ variant?: 'edit' | 'delete' | 'toggle' | 'sen
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -335,66 +421,84 @@ const IconButton = styled.button<{ variant?: 'edit' | 'delete' | 'toggle' | 'sen
     switch (props.variant) {
       case 'edit':
         return `
-          background: rgba(59, 130, 246, 0.1);
-          color: #3b82f6;
+          background: rgba(99, 102, 241, 0.1);
+          color: rgba(99, 102, 241, 0.8);
           
           &:hover {
-            background: rgba(59, 130, 246, 0.2);
-            border-color: rgba(59, 130, 246, 0.3);
+            background: rgba(99, 102, 241, 0.2);
+            color: rgba(99, 102, 241, 1);
           }
         `;
       case 'delete':
         return `
           background: rgba(239, 68, 68, 0.1);
-          color: #ef4444;
+          color: rgba(239, 68, 68, 0.8);
           
           &:hover {
             background: rgba(239, 68, 68, 0.2);
-            border-color: rgba(239, 68, 68, 0.3);
+            color: rgba(239, 68, 68, 1);
           }
         `;
       case 'toggle':
         return `
-          background: rgba(34, 197, 94, 0.1);
-          color: #22c55e;
+          background: rgba(245, 158, 11, 0.1);
+          color: rgba(245, 158, 11, 0.8);
           
           &:hover {
-            background: rgba(34, 197, 94, 0.2);
-            border-color: rgba(34, 197, 94, 0.3);
+            background: rgba(245, 158, 11, 0.2);
+            color: rgba(245, 158, 11, 1);
           }
         `;
       case 'send':
         return `
-          background: rgba(139, 92, 246, 0.1);
-          color: #8b5cf6;
+          background: rgba(34, 197, 94, 0.1);
+          color: rgba(34, 197, 94, 0.8);
           
           &:hover {
-            background: rgba(139, 92, 246, 0.2);
-            border-color: rgba(139, 92, 246, 0.3);
+            background: rgba(34, 197, 94, 0.2);
+            color: rgba(34, 197, 94, 1);
           }
         `;
       case 'view':
         return `
-          background: rgba(107, 114, 128, 0.1);
-          color: #6b7280;
+          background: rgba(156, 163, 175, 0.1);
+          color: rgba(156, 163, 175, 0.8);
           
           &:hover {
-            background: rgba(107, 114, 128, 0.2);
-            border-color: rgba(107, 114, 128, 0.3);
+            background: rgba(156, 163, 175, 0.2);
+            color: rgba(156, 163, 175, 1);
           }
         `;
       default:
         return `
-          background: rgba(107, 114, 128, 0.1);
-          color: #6b7280;
+          background: rgba(255, 255, 255, 0.05);
+          color: rgba(255, 255, 255, 0.7);
           
           &:hover {
-            background: rgba(107, 114, 128, 0.2);
-            border-color: rgba(107, 114, 128, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.9);
           }
         `;
     }
   }}
+`
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: rgba(255, 255, 255, 0.6);
+`
+
+const EmptyStateIcon = styled.div`
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1rem;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(99, 102, 241, 0.8);
 `
 
 const Sidebar = styled.div`
@@ -404,59 +508,51 @@ const Sidebar = styled.div`
 `
 
 const SidebarCard = styled.div`
-  background: var(--card-background);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
 `
 
 const SidebarTitle = styled.h3`
-  font-size: 1.125rem;
+  font-size: 18px;
   font-weight: 600;
-  color: var(--heading-primary);
-  margin: 0 0 1rem 0;
+  color: white;
+  margin: 0 0 16px 0;
 `
 
 const QuickAction = styled.button`
+  width: 100%;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 0.75rem;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: 0.5rem;
-  
-  &:hover {
-    background: rgba(239, 68, 68, 0.05);
-    border-color: rgba(239, 68, 68, 0.2);
-  }
-  
+  gap: 12px;
+  margin-bottom: 12px;
+
   &:last-child {
     margin-bottom: 0;
   }
-`
 
-const EmptyState = styled.div`
-  text-align: center;
-  padding: 3rem 1.5rem;
-  color: var(--text-secondary);
-`
-
-const EmptyStateIcon = styled.div`
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 1rem;
-  background: rgba(239, 68, 68, 0.1);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ef4444;
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    transform: translateX(4px);
+  }
 `
 
 const NotificationMethod = styled.div`
@@ -464,42 +560,48 @@ const NotificationMethod = styled.div`
   align-items: center;
   gap: 0.5rem;
   font-size: 0.75rem;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.6);
 `
 
 const UpcomingReminder = styled.div<{ priority: string }>`
   padding: 0.75rem;
-  border-radius: 8px;
+  border-radius: 12px;
   margin-bottom: 0.75rem;
   border-left: 4px solid;
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
   
   ${props => {
     switch (props.priority) {
       case 'high':
         return `
+          border-left-color: rgba(239, 68, 68, 0.8);
           background: rgba(239, 68, 68, 0.05);
-          border-left-color: #ef4444;
         `;
       case 'medium':
         return `
-          background: rgba(251, 191, 36, 0.05);
-          border-left-color: #f59e0b;
+          border-left-color: rgba(245, 158, 11, 0.8);
+          background: rgba(245, 158, 11, 0.05);
         `;
       case 'low':
         return `
+          border-left-color: rgba(34, 197, 94, 0.8);
           background: rgba(34, 197, 94, 0.05);
-          border-left-color: #22c55e;
         `;
       default:
         return `
-          background: rgba(107, 114, 128, 0.05);
-          border-left-color: #6b7280;
+          border-left-color: rgba(156, 163, 175, 0.8);
+          background: rgba(156, 163, 175, 0.05);
         `;
     }
   }}
 `
 
-// Types
+// Interfaces
 interface PaymentReminder {
   id: string
   title: string
@@ -742,263 +844,254 @@ export default function PaymentRemindersPage() {
   if (loading) {
     return (
       <DashboardLayout>
-        <PageContainer>
-          <div>Loading...</div>
-        </PageContainer>
+        <Container>
+          <div style={{ color: 'rgba(255, 255, 255, 0.7)' }}>Loading...</div>
+        </Container>
       </DashboardLayout>
     )
   }
 
   return (
     <DashboardLayout>
+      <Container>
+        <Header>
+          <div>
+            <h1>Payment Reminders</h1>
+            <p>Manage and track your payment reminders</p>
+          </div>
+          <HeaderActions>
+            <Button variant="secondary">
+              <Download size={20} />
+              Export
+            </Button>
+            <Button variant="primary">
+              <Plus size={20} />
+              Add Reminder
+            </Button>
+          </HeaderActions>
+        </Header>
 
-    <PageContainer id="payment-reminders-content">
-      <Header>
-        <Title>Payment Reminders</Title>
-        <ActionButtons>
-          <Button variant="secondary">
-            <Download size={20} />
-            Export
-          </Button>
-          <Button variant="primary">
-            <Plus size={20} />
-            Add Reminder
-          </Button>
-        </ActionButtons>
-      </Header>
+        <StatsGrid>
+          <StatCard color="var(--info-500)">
+            <StatHeader>
+              <div>
+                <StatValue>{stats.totalReminders}</StatValue>
+                <StatLabel>Total Reminders</StatLabel>
+              </div>
+              <StatIcon color="var(--info-500)">
+                <Bell size={24} />
+              </StatIcon>
+            </StatHeader>
+          </StatCard>
+          <StatCard color="var(--success-500)">
+            <StatHeader>
+              <div>
+                <StatValue>{stats.activeReminders}</StatValue>
+                <StatLabel>Active Reminders</StatLabel>
+              </div>
+              <StatIcon color="var(--success-500)">
+                <CheckCircle size={24} />
+              </StatIcon>
+            </StatHeader>
+          </StatCard>
+          <StatCard color="var(--warning-500)">
+            <StatHeader>
+              <div>
+                <StatValue>{stats.sentThisWeek}</StatValue>
+                <StatLabel>Sent This Week</StatLabel>
+              </div>
+              <StatIcon color="var(--warning-500)">
+                <Send size={24} />
+              </StatIcon>
+            </StatHeader>
+          </StatCard>
+          <StatCard color="var(--error-500)">
+            <StatHeader>
+              <div>
+                <StatValue>{stats.overdueReminders}</StatValue>
+                <StatLabel>Overdue Reminders</StatLabel>
+              </div>
+              <StatIcon color="var(--error-500)">
+                <AlertTriangle size={24} />
+              </StatIcon>
+            </StatHeader>
+          </StatCard>
+        </StatsGrid>
 
-      <StatsGrid>
-        <StatCard>
-          <StatValue>{stats.totalReminders}</StatValue>
-          <StatLabel>
-            <Bell size={16} />
-            Total Reminders
-          </StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{stats.activeReminders}</StatValue>
-          <StatLabel>
-            <CheckCircle size={16} />
-            Active Reminders
-          </StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{stats.sentThisWeek}</StatValue>
-          <StatLabel>
-            <Send size={16} />
-            Sent This Week
-          </StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{stats.overdueReminders}</StatValue>
-          <StatLabel>
-            <AlertTriangle size={16} />
-            Overdue Reminders
-          </StatLabel>
-        </StatCard>
-      </StatsGrid>
-
-      <ContentGrid>
-        <MainContent>
-          <TableHeader>
-            <TableTitle>Payment Reminders</TableTitle>
-            <FilterButton onClick={() => {
-              const filters = ['all', 'active', 'sent', 'overdue', 'paused']
-              const currentIndex = filters.indexOf(filter)
-              const nextIndex = (currentIndex + 1) % filters.length
-              setFilter(filters[nextIndex])
-            }}>
-              <Filter size={16} />
-              {filter === 'all' ? 'All' : 
-               filter.charAt(0).toUpperCase() + filter.slice(1)}
-            </FilterButton>
-          </TableHeader>
-          
-          <Table>
-            <TableRow isHeader>
-              <div>Reminder & Priority</div>
-              <div>Due Date</div>
-              <div>Amount</div>
-              <div>Methods</div>
-              <div>Status</div>
-              <div>Actions</div>
-            </TableRow>
+        <ContentGrid>
+          <MainContent>
+            <TableHeader>
+              <TableTitle>Payment Reminders</TableTitle>
+              <FilterButton onClick={() => setFilter(filter === 'all' ? 'active' : 'all')}>
+                <Filter size={16} />
+                {filter === 'all' ? 'All' : 'Active'}
+              </FilterButton>
+            </TableHeader>
             
-            {filteredReminders.length === 0 ? (
-              <EmptyState>
-                <EmptyStateIcon>
-                  <Bell size={32} />
-                </EmptyStateIcon>
-                <h3>No reminders found</h3>
-                <p>Create your first payment reminder to stay on top of due dates</p>
-              </EmptyState>
-            ) : (
-              filteredReminders.map((reminder) => (
-                <TableRow key={reminder.id}>
-                  <div>
-                    <div style={{ fontWeight: '500', color: 'var(--heading-primary)', marginBottom: '0.25rem' }}>
-                      {reminder.title}
+            <Table>
+              <TableRow isHeader>
+                <div>Reminder</div>
+                <div>Due Date</div>
+                <div>Amount</div>
+                <div>Priority</div>
+                <div>Status</div>
+                <div>Actions</div>
+              </TableRow>
+              
+              {filteredReminders.length === 0 ? (
+                <EmptyState>
+                  <EmptyStateIcon>
+                    <Bell size={32} />
+                  </EmptyStateIcon>
+                  <h3 style={{ color: 'rgba(255, 255, 255, 0.8)', marginBottom: '0.5rem' }}>No reminders found</h3>
+                  <p style={{ marginBottom: '1.5rem' }}>Create your first payment reminder to get started.</p>
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <Button variant="primary">
+                      <Plus size={20} />
+                      Add Reminder
+                    </Button>
+                  </div>
+                </EmptyState>
+              ) : (
+                filteredReminders.map((reminder) => (
+                  <TableRow key={reminder.id}>
+                    <div>
+                      <div style={{ fontWeight: '500', color: 'rgba(255, 255, 255, 0.9)', marginBottom: '0.25rem' }}>
+                        {reminder.title}
+                      </div>
+                      {reminder.description && (
+                        <div style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+                          {reminder.description}
+                        </div>
+                      )}
+                      {reminder.notification_methods.length > 0 && (
+                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                          {reminder.notification_methods.map((method, index) => (
+                            <NotificationMethod key={index}>
+                              {getNotificationMethodIcon(method)}
+                              {method}
+                            </NotificationMethod>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                      {formatDate(reminder.due_date)}
+                      <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)', marginTop: '0.25rem' }}>
+                        {getDaysUntilDue(reminder.due_date) >= 0 
+                          ? `${getDaysUntilDue(reminder.due_date)} days left`
+                          : `${Math.abs(getDaysUntilDue(reminder.due_date))} days overdue`
+                        }
+                      </div>
+                    </div>
+                    <div style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                      {reminder.amount ? formatCurrency(reminder.amount, reminder.currency) : '-'}
+                    </div>
+                    <div>
                       <PriorityBadge priority={reminder.priority}>
                         {reminder.priority === 'high' && <AlertTriangle size={12} />}
                         {reminder.priority === 'medium' && <Clock size={12} />}
                         {reminder.priority === 'low' && <CheckCircle size={12} />}
-                        {reminder.priority.charAt(0).toUpperCase() + reminder.priority.slice(1)}
+                        {reminder.priority}
                       </PriorityBadge>
                     </div>
-                  </div>
-                  <div>
-                    <div>{formatDate(reminder.due_date)}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      {getDaysUntilDue(reminder.due_date) >= 0 
-                        ? `${getDaysUntilDue(reminder.due_date)} days`
-                        : `${Math.abs(getDaysUntilDue(reminder.due_date))} days overdue`
-                      }
+                    <div>
+                      <StatusBadge status={reminder.status}>
+                        {reminder.status === 'active' && <CheckCircle size={12} />}
+                        {reminder.status === 'sent' && <Send size={12} />}
+                        {reminder.status === 'paused' && <XCircle size={12} />}
+                        {reminder.status === 'overdue' && <AlertTriangle size={12} />}
+                        {reminder.status}
+                      </StatusBadge>
                     </div>
-                  </div>
-                  <div style={{ fontWeight: '500' }}>
-                    {reminder.amount ? formatCurrency(reminder.amount, reminder.currency) : '-'}
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      {reminder.notification_methods.map((method, index) => (
-                        <NotificationMethod key={index}>
-                          {getNotificationMethodIcon(method)}
-                          {method.charAt(0).toUpperCase() + method.slice(1)}
-                        </NotificationMethod>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <StatusBadge status={reminder.status}>
-                      {reminder.status === 'active' && (
-                        <>
-                          <CheckCircle size={12} />
-                          Active
-                        </>
-                      )}
-                      {reminder.status === 'sent' && (
-                        <>
-                          <Send size={12} />
-                          Sent
-                        </>
-                      )}
-                      {reminder.status === 'paused' && (
-                        <>
-                          <BellOff size={12} />
-                          Paused
-                        </>
-                      )}
-                      {reminder.status === 'overdue' && (
-                        <>
-                          <XCircle size={12} />
-                          Overdue
-                        </>
-                      )}
-                    </StatusBadge>
-                  </div>
-                  <ActionButtonsGroup>
-                    <IconButton variant="edit" title="Edit Reminder">
-                      <Edit size={16} />
-                    </IconButton>
-                    <IconButton variant="view" title="View History">
-                      <Eye size={16} />
-                    </IconButton>
-                    <IconButton 
-                      variant="send" 
-                      title="Send Now"
-                      onClick={() => sendReminder(reminder.id)}
-                    >
-                      <Send size={16} />
-                    </IconButton>
-                    <IconButton 
-                      variant="toggle" 
-                      title={reminder.is_active ? 'Pause Reminder' : 'Activate Reminder'}
-                      onClick={() => toggleReminder(reminder.id, reminder.is_active)}
-                    >
-                      {reminder.is_active ? <BellOff size={16} /> : <Bell size={16} />}
-                    </IconButton>
-                    <IconButton 
-                      variant="delete" 
-                      title="Delete Reminder"
-                      onClick={() => deleteReminder(reminder.id)}
-                    >
-                      <Trash2 size={16} />
-                    </IconButton>
-                  </ActionButtonsGroup>
-                </TableRow>
-              ))
-            )}
-          </Table>
-        </MainContent>
+                    <ActionButtonsGroup>
+                      <IconButton variant="view" title="View Details">
+                        <Eye size={16} />
+                      </IconButton>
+                      <IconButton variant="edit" title="Edit Reminder">
+                        <Edit size={16} />
+                      </IconButton>
+                      <IconButton 
+                        variant="toggle" 
+                        title={reminder.is_active ? "Pause Reminder" : "Activate Reminder"}
+                        onClick={() => toggleReminder(reminder.id, reminder.is_active)}
+                      >
+                        {reminder.is_active ? <BellOff size={16} /> : <Bell size={16} />}
+                      </IconButton>
+                      <IconButton 
+                        variant="send" 
+                        title="Send Now"
+                        onClick={() => sendReminder(reminder.id)}
+                      >
+                        <Send size={16} />
+                      </IconButton>
+                      <IconButton 
+                        variant="delete" 
+                        title="Delete Reminder"
+                        onClick={() => deleteReminder(reminder.id)}
+                      >
+                        <Trash2 size={16} />
+                      </IconButton>
+                    </ActionButtonsGroup>
+                  </TableRow>
+                ))
+              )}
+            </Table>
+          </MainContent>
 
-        <Sidebar>
-          <SidebarCard>
-            <SidebarTitle>Quick Actions</SidebarTitle>
-            <QuickAction>
-              <Plus size={20} />
-              <div>
-                <div style={{ fontWeight: '500' }}>Add Reminder</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Create a new payment reminder
+          <Sidebar>
+            <SidebarCard>
+              <SidebarTitle>Upcoming Reminders</SidebarTitle>
+              {upcomingReminders.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'rgba(255, 255, 255, 0.6)', padding: '1rem 0' }}>
+                  No upcoming reminders
                 </div>
-              </div>
-            </QuickAction>
-            <QuickAction>
-              <Settings size={20} />
-              <div>
-                <div style={{ fontWeight: '500' }}>Notification Settings</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Configure default preferences
-                </div>
-              </div>
-            </QuickAction>
-            <QuickAction>
-              <Users size={20} />
-              <div>
-                <div style={{ fontWeight: '500' }}>Contact Management</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Manage recipient contacts
-                </div>
-              </div>
-            </QuickAction>
-            <QuickAction>
-              <Zap size={20} />
-              <div>
-                <div style={{ fontWeight: '500' }}>Automation Rules</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Set up automatic reminders
-                </div>
-              </div>
-            </QuickAction>
-          </SidebarCard>
-
-          <SidebarCard>
-            <SidebarTitle>Upcoming Reminders</SidebarTitle>
-            {upcomingReminders.length === 0 ? (
-              <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                No reminders due in the next 14 days
-              </div>
-            ) : (
-              upcomingReminders.map((reminder) => {
-                const daysUntil = getDaysUntilDue(reminder.due_date)
-                return (
+              ) : (
+                upcomingReminders.map((reminder) => (
                   <UpcomingReminder key={reminder.id} priority={reminder.priority}>
-                    <div style={{ fontWeight: '500', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                      {reminder.title}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                      <div style={{ fontWeight: '500', color: 'rgba(255, 255, 255, 0.9)' }}>
+                        {reminder.title}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)' }}>
+                        {getDaysUntilDue(reminder.due_date)} days
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      {reminder.amount ? formatCurrency(reminder.amount) : 'No amount'} • {daysUntil} days
+                    <div style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.7)' }}>
+                      {formatDate(reminder.due_date)}
                     </div>
+                    {reminder.amount && (
+                      <div style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.8)', marginTop: '0.25rem' }}>
+                        {formatCurrency(reminder.amount, reminder.currency)}
+                      </div>
+                    )}
                   </UpcomingReminder>
-                )
-              })
-            )}
-          </SidebarCard>
-        </Sidebar>
-      </ContentGrid>
-    </PageContainer>
+                ))
+              )}
+            </SidebarCard>
+
+            <SidebarCard>
+              <SidebarTitle>Quick Actions</SidebarTitle>
+              <QuickAction>
+                <Plus size={20} />
+                Create New Reminder
+              </QuickAction>
+              <QuickAction>
+                <Settings size={20} />
+                Notification Settings
+              </QuickAction>
+              <QuickAction>
+                <Target size={20} />
+                Reminder Templates
+              </QuickAction>
+              <QuickAction>
+                <Zap size={20} />
+                Bulk Actions
+              </QuickAction>
+            </SidebarCard>
+          </Sidebar>
+        </ContentGrid>
+      </Container>
     </DashboardLayout>
   )
 }

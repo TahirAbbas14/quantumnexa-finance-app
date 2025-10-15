@@ -28,7 +28,10 @@ import {
   Receipt,
   TrendingUp,
   X,
-  Eye
+  Eye,
+  Mail,
+  MapPin,
+  Globe
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -198,10 +201,125 @@ const MainContent = styled.div`
   grid-template-columns: 2fr 1fr;
   gap: 32px;
   margin-bottom: 32px;
-  
-  @media (max-width: 1024px) {
-    grid-template-columns: 1fr;
+`;
+
+// Print/PDF Template Styles
+const InvoicePDFContainer = styled.div`
+  background: #ffffff;
+  color: #111111;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+`;
+
+const PDFHeader = styled.div`
+  background: #000000;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 24px 32px 16px 32px;
+  min-height: 200px;
+`;
+
+const PDFBrand = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+
+  img.logo {
+    height: 36px;
+    width: auto;
+    object-fit: contain;
+    filter: brightness(100%);
   }
+
+  .tagline {
+    color: #cfcfcf;
+    font-size: 12px;
+  }
+`;
+
+const PDFTitle = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 600;
+`;
+
+const PDFWave = styled.img`
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  height: 180px;
+  opacity: 0.85;
+`;
+
+const PDFInfoBlock = styled.div`
+  background: #111111;
+  color: #ffffff;
+  border-top: 1px solid rgba(255,255,255,0.2);
+`;
+
+const PDFInfoGrid = styled.div`
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 10px 16px;
+  padding: 16px 32px;
+  font-size: 14px;
+`;
+
+const PDFTable = styled.div`
+  margin: 24px 32px;
+`;
+
+const PDFTableHeader = styled.div`
+  display: grid;
+  grid-template-columns: 100px 1fr 180px;
+  align-items: center;
+  background: #111111;
+  color: #ffffff;
+  font-weight: 600;
+  height: 44px;
+  padding: 0 8px;
+`;
+
+const PDFTableRow = styled.div`
+  display: grid;
+  grid-template-columns: 100px 1fr 180px;
+  align-items: center;
+  padding: 12px 8px;
+  border-bottom: 1px solid #dddddd;
+  min-height: 44px;
+  font-size: 14px;
+`;
+
+const PDFStatusTotal = styled.div`
+  margin: 28px 32px;
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  align-items: center;
+  gap: 16px;
+`;
+
+const PDFTotalBox = styled.div`
+  background: #111111;
+  color: #ffffff;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+`;
+
+const PDFFooter = styled.div`
+  padding: 24px 32px 32px 32px;
+  border-top: 1px solid #e8e8e8;
+  text-align: center;
+  font-size: 13px;
+  color: #444444;
 `;
 
 const InvoiceDetails = styled(Card)`
@@ -835,6 +953,29 @@ export default function InvoiceDetailPage() {
 
   const summary = calculatePaymentSummary();
 
+  const handleDownloadPDF = async () => {
+    if (!invoice) return;
+    try {
+      const { exportToPDF } = await import('@/lib/exportUtils');
+      const data = {
+        title: `Invoice ${invoice.invoice_number}`,
+        subtitle: invoice.clients?.name ? `Client: ${invoice.clients.name}` : undefined,
+        dateRange: `${format(new Date(invoice.issue_date), 'MMM d, yyyy')} - ${format(new Date(invoice.due_date), 'MMM d, yyyy')}`,
+        data: []
+      };
+      await exportToPDF('invoice-print-content', data, {
+        filename: `invoice-${invoice.invoice_number}`,
+        orientation: 'portrait',
+        format: 'a4',
+        includeHeader: false,
+        includeFooter: false
+      });
+    } catch (error) {
+      console.error('Error exporting invoice PDF:', error);
+      alert('Failed to download PDF');
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -869,7 +1010,7 @@ export default function InvoiceDetailPage() {
             </HeaderContent>
           </HeaderLeft>
           <HeaderActions>
-            <Button variant="outline" size="md">
+            <Button variant="outline" size="md" onClick={handleDownloadPDF}>
               <Download size={16} />
               Download PDF
             </Button>
@@ -887,89 +1028,91 @@ export default function InvoiceDetailPage() {
         </Header>
 
         <MainContent>
-          <InvoiceDetails variant="glass">
-            <StatusBadge status={invoice.status} onClick={() => {
-              if (invoice.status === 'draft') {
-                updateInvoiceStatus('sent');
-              }
-            }} style={{ cursor: invoice.status === 'draft' ? 'pointer' : 'default' }}>
-              {getStatusIcon(invoice.status)}
-              {invoice.status}
-            </StatusBadge>
+          <div id="invoice-print-content">
+            <InvoiceDetails variant="glass">
+              <StatusBadge status={invoice.status} onClick={() => {
+                if (invoice.status === 'draft') {
+                  updateInvoiceStatus('sent');
+                }
+              }} style={{ cursor: invoice.status === 'draft' ? 'pointer' : 'default' }}>
+                {getStatusIcon(invoice.status)}
+                {invoice.status}
+              </StatusBadge>
 
-            <InvoiceHeader>
-              <InvoiceInfo>
-                <div className="invoice-number">{invoice.invoice_number}</div>
-                <div className="dates">
-                  <div>Issue Date: {format(new Date(invoice.issue_date), 'MMM d, yyyy')}</div>
-                  <div>Due Date: {format(new Date(invoice.due_date), 'MMM d, yyyy')}</div>
-                </div>
-              </InvoiceInfo>
-              <AmountSummary>
-                <div className="total-amount">{formatPKR(invoice.total_amount)}</div>
-                <div className="currency">{invoice.currency || 'PKR'}</div>
-              </AmountSummary>
-            </InvoiceHeader>
-
-            <ClientSection>
-              <h3>
-                <User size={18} />
-                Client Information
-              </h3>
-              <ClientInfo>
-                <div className="name">{invoice.clients?.name}</div>
-                <div className="detail">
-                  <FileText size={14} />
-                  {invoice.clients?.email}
-                </div>
-                {invoice.clients?.phone && (
-                  <div className="detail">
-                    <FileText size={14} />
-                    {invoice.clients?.phone}
+              <InvoiceHeader>
+                <InvoiceInfo>
+                  <div className="invoice-number">{invoice.invoice_number}</div>
+                  <div className="dates">
+                    <div>Issue Date: {format(new Date(invoice.issue_date), 'MMM d, yyyy')}</div>
+                    <div>Due Date: {format(new Date(invoice.due_date), 'MMM d, yyyy')}</div>
                   </div>
-                )}
-                {invoice.clients?.address && (
-                  <div className="detail">
-                    <FileText size={14} />
-                    {invoice.clients?.address}
-                  </div>
-                )}
-              </ClientInfo>
-            </ClientSection>
+                </InvoiceInfo>
+                <AmountSummary>
+                  <div className="total-amount">{formatPKR(invoice.total_amount)}</div>
+                  <div className="currency">{invoice.currency || 'PKR'}</div>
+                </AmountSummary>
+              </InvoiceHeader>
 
-            {invoice.projects && (
-              <ProjectSection>
+              <ClientSection>
                 <h3>
-                  <FileText size={18} />
-                  Project
+                  <User size={18} />
+                  Client Information
                 </h3>
-                <ProjectInfo>
-                  <div className="name">{invoice.projects.name}</div>
-                </ProjectInfo>
-              </ProjectSection>
-            )}
+                <ClientInfo>
+                  <div className="name">{invoice.clients?.name}</div>
+                  <div className="detail">
+                    <FileText size={14} />
+                    {invoice.clients?.email}
+                  </div>
+                  {invoice.clients?.phone && (
+                    <div className="detail">
+                      <FileText size={14} />
+                      {invoice.clients?.phone}
+                    </div>
+                  )}
+                  {invoice.clients?.address && (
+                    <div className="detail">
+                      <FileText size={14} />
+                      {invoice.clients?.address}
+                    </div>
+                  )}
+                </ClientInfo>
+              </ClientSection>
 
-            {invoice.description && (
-              <DescriptionSection>
-                <h3>Description</h3>
-                <div className="description">{invoice.description}</div>
-              </DescriptionSection>
-            )}
+              {invoice.projects && (
+                <ProjectSection>
+                  <h3>
+                    <FileText size={18} />
+                    Project
+                  </h3>
+                  <ProjectInfo>
+                    <div className="name">{invoice.projects.name}</div>
+                  </ProjectInfo>
+                </ProjectSection>
+              )}
 
-            {invoice.notes && (
-              <DescriptionSection>
-                <h3>Notes</h3>
-                <div className="description">{invoice.notes}</div>
-              </DescriptionSection>
-            )}
+              {invoice.description && (
+                <DescriptionSection>
+                  <h3>Description</h3>
+                  <div className="description">{invoice.description}</div>
+                </DescriptionSection>
+              )}
 
-            {invoice.terms_conditions && (
-              <DescriptionSection>
-                <h3>Terms & Conditions</h3>
-                <div className="description">{invoice.terms_conditions}</div>
-              </DescriptionSection>
-            )}
-          </InvoiceDetails>
+              {invoice.notes && (
+                <DescriptionSection>
+                  <h3>Notes</h3>
+                  <div className="description">{invoice.notes}</div>
+                </DescriptionSection>
+              )}
+
+              {invoice.terms_conditions && (
+                <DescriptionSection>
+                  <h3>Terms & Conditions</h3>
+                  <div className="description">{invoice.terms_conditions}</div>
+                </DescriptionSection>
+              )}
+            </InvoiceDetails>
+          </div>
 
           <PaymentSummary variant="glass">
             <SummaryHeader>

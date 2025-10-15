@@ -27,7 +27,12 @@ import {
   RefreshCw,
   Repeat,
   Bell,
-  Clock
+  Clock,
+  UserCheck,
+  ClockIcon,
+  CreditCard,
+  PieChart,
+  History
 } from 'lucide-react'
 
 const SidebarOverlay = styled.div`
@@ -345,6 +350,13 @@ export default function Sidebar() {
     { name: 'Invoices', href: '/invoices', icon: FileText, current: pathname === '/invoices' },
     { name: 'Expenses', href: '/expenses', icon: Receipt, current: pathname === '/expenses' },
     
+    // Employee Payroll
+    { name: 'Employees', href: '/employees', icon: UserCheck, current: pathname === '/employees' },
+    { name: 'Time Tracking', href: '/time-tracking', icon: ClockIcon, current: pathname === '/time-tracking' },
+    { name: 'Payroll', href: '/payroll', icon: CreditCard, current: pathname === '/payroll' },
+    { name: 'Payroll Reports', href: '/payroll/reports', icon: PieChart, current: pathname === '/payroll/reports' },
+    { name: 'Payroll History', href: '/payroll/history', icon: History, current: pathname === '/payroll/history' },
+    
     // Financial Management
     { name: 'Budgets', href: '/budgets', icon: Target, current: pathname === '/budgets' },
     { name: 'Savings', href: '/savings', icon: PiggyBank, current: pathname === '/savings' },
@@ -418,16 +430,36 @@ function SidebarContentComponent({ pathname, onSignOut, user, navigation }: {
 }) {
   // Group navigation items by category
   const coreFeatures = navigation.slice(0, 5) // Dashboard through Expenses
-  const financialManagement = navigation.slice(5, 9) // Budgets through Budget Alerts
-  const recurringFeatures = navigation.slice(9, 13) // Recurring Invoices through Payment Reminders
-  const advancedReports = navigation.slice(13, 18) // Reports through Business Metrics
-  const settings = navigation.slice(18) // Settings
+  const employeePayroll = navigation.slice(5, 10) // Employees through Payroll History
+  const financialManagement = navigation.slice(10, 14) // Budgets through Budget Alerts
+  const recurringFeatures = navigation.slice(14, 18) // Recurring Invoices through Payment Reminders
+  const advancedReports = navigation.slice(18, 23) // Reports through Business Metrics
+  const settings = navigation.slice(23) // Settings
 
   return (
     <NavigationContainer>
       <Navigation>
         {/* Core Features */}
         {coreFeatures.map((item) => {
+          const isActive = pathname === item.href
+          return (
+            <NavigationLink
+              key={item.name}
+              href={item.href}
+              $isActive={isActive}
+            >
+              <NavigationIcon $isActive={isActive}>
+                <item.icon width={24} height={24} />
+              </NavigationIcon>
+              {item.name}
+            </NavigationLink>
+          )
+        })}
+        
+        <NavigationSeparator />
+        
+        {/* Employee Payroll */}
+        {employeePayroll.map((item) => {
           const isActive = pathname === item.href
           return (
             <NavigationLink
