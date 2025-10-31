@@ -386,6 +386,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [chartData, setChartData] = useState<Array<{ month: string; revenue: number; expenses: number }>>([]);
 
   useEffect(() => {
     if (user) {
@@ -519,6 +520,39 @@ export default function DashboardPage() {
           completedGoals
         }
       });
+
+      // Compute monthly chart data for the last 7 months based on actual invoices and expenses
+      const now = new Date();
+      const months: Date[] = [];
+      for (let i = 6; i >= 0; i--) {
+        months.push(new Date(now.getFullYear(), now.getMonth() - i, 1));
+      }
+
+      const monthlyData = months.map((d) => {
+        const monthLabel = d.toLocaleString('default', { month: 'short' });
+
+        const revenueSum = (invoices || [])
+          .filter(inv => {
+            const dt = new Date(inv.created_at);
+            const sameMonth = dt.getFullYear() === d.getFullYear() && dt.getMonth() === d.getMonth();
+            return inv.status === 'paid' && sameMonth;
+          })
+          .reduce((sum, inv) => {
+            const amt = typeof inv.total_amount === 'number' ? inv.total_amount : (typeof inv.amount === 'number' ? inv.amount : 0);
+            return sum + (amt || 0);
+          }, 0);
+
+        const expensesSum = (expenses || [])
+          .filter(exp => {
+            const dt = new Date(exp.created_at);
+            return dt.getFullYear() === d.getFullYear() && dt.getMonth() === d.getMonth();
+          })
+          .reduce((sum, exp) => sum + (typeof exp.amount === 'number' ? exp.amount : 0), 0);
+
+        return { month: monthLabel, revenue: revenueSum, expenses: expensesSum };
+      });
+
+      setChartData(monthlyData);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -590,7 +624,7 @@ export default function DashboardPage() {
               </p>
             </StatValue>
           </StatCard>
-
+ 
           <StatCard variant="glass" color="var(--primary-500)">
             <StatHeader>
               <StatIcon $color="var(--primary-100)">
@@ -688,7 +722,7 @@ export default function DashboardPage() {
               <p>Monthly revenue and expenses comparison</p>
             </Card.Header>
             <Card.Content>
-              <RevenueChart />
+              <RevenueChart data={chartData} />
             </Card.Content>
           </Card>
 

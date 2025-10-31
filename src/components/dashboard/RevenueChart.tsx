@@ -22,17 +22,13 @@ const ChartContainer = styled.div`
   height: 20rem;
 `
 
-const data = [
-  { month: 'Jan', revenue: 450000, expenses: 280000 },
-  { month: 'Feb', revenue: 520000, expenses: 320000 },
-  { month: 'Mar', revenue: 480000, expenses: 290000 },
-  { month: 'Apr', revenue: 580000, expenses: 350000 },
-  { month: 'May', revenue: 620000, expenses: 380000 },
-  { month: 'Jun', revenue: 550000, expenses: 340000 },
-  { month: 'Jul', revenue: 680000, expenses: 420000 },
-]
+interface ChartPoint {
+  month: string
+  revenue: number
+  expenses: number
+}
 
-export default function RevenueChart() {
+export default function RevenueChart({ data = [] }: { data?: ChartPoint[] }) {
   return (
     <Container>
       <Title>Revenue vs Expenses</Title>
@@ -43,7 +39,7 @@ export default function RevenueChart() {
             <XAxis dataKey="month" />
             <YAxis />
             <Tooltip 
-              formatter={(value: number, name) => [formatPKR(value), name === 'revenue' ? 'Revenue' : 'Expenses']}
+              formatter={(value: number, name: string) => [formatPKR(value), name === 'revenue' ? 'Revenue' : 'Expenses']}
             />
             <Line 
               type="monotone" 
