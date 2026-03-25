@@ -1,8 +1,8 @@
 'use client';
 
-import { use, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Button from '@/components/ui/Button';
@@ -250,10 +250,11 @@ const Td = styled.td`
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 `;
 
-export default function PayrollDetailPage({ params }: { params: { id: string } }) {
+export default function PayrollDetailPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const payrollId = use(params as unknown as Promise<{ id: string }>).id;
+  const params = useParams<{ id: string }>();
+  const payrollId = params?.id as string;
 
   const [payroll, setPayroll] = useState<PayrollRow | null>(null);
   const [items, setItems] = useState<PayrollItem[]>([]);

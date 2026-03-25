@@ -1,7 +1,7 @@
 'use client';
 
-import { use, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import styled from 'styled-components';
 import {
   AlertCircle,
@@ -317,8 +317,9 @@ const formatMonth = (monthStr: string) => {
   return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
 };
 
-export default function EmployeeDetailPage({ params }: { params: { id: string } }) {
-  const employeeId = use(params as unknown as Promise<{ id: string }>).id;
+export default function EmployeeDetailPage() {
+  const params = useParams<{ id: string }>();
+  const employeeId = params?.id as string;
   const router = useRouter();
   const { user } = useAuth();
 
