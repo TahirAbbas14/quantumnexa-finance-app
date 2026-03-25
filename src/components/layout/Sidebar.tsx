@@ -29,7 +29,6 @@ import {
   Bell,
   Clock,
   UserCheck,
-  ClockIcon,
   CreditCard,
   PieChart,
   History
@@ -352,7 +351,6 @@ export default function Sidebar() {
     
     // Employee Payroll
     { name: 'Employees', href: '/employees', icon: UserCheck, current: pathname === '/employees' },
-    { name: 'Time Tracking', href: '/time-tracking', icon: ClockIcon, current: pathname === '/time-tracking' },
     { name: 'Payroll', href: '/payroll', icon: CreditCard, current: pathname === '/payroll' },
     { name: 'Payroll Reports', href: '/payroll/reports', icon: PieChart, current: pathname === '/payroll/reports' },
     { name: 'Payroll History', href: '/payroll/history', icon: History, current: pathname === '/payroll/history' },
@@ -430,11 +428,11 @@ function SidebarContentComponent({ pathname, onSignOut, user, navigation }: {
 }) {
   // Group navigation items by category
   const coreFeatures = navigation.slice(0, 5) // Dashboard through Expenses
-  const employeePayroll = navigation.slice(5, 10) // Employees through Payroll History
-  const financialManagement = navigation.slice(10, 14) // Budgets through Budget Alerts
-  const recurringFeatures = navigation.slice(14, 18) // Recurring Invoices through Payment Reminders
-  const advancedReports = navigation.slice(18, 23) // Reports through Business Metrics
-  const settings = navigation.slice(23) // Settings
+  const employeePayroll = navigation.slice(5, 9) // Employees through Payroll History
+  const financialManagement = navigation.slice(9, 13) // Budgets through Budget Alerts
+  const recurringFeatures = navigation.slice(13, 17) // Recurring Invoices through Payment Reminders
+  const advancedReports = navigation.slice(17, 22) // Reports through Business Metrics
+  const settings = navigation.slice(22) // Settings
 
   return (
     <NavigationContainer>

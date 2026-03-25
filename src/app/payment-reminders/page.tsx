@@ -744,10 +744,12 @@ export default function PaymentRemindersPage() {
     }
   }
 
-  const formatCurrency = (amount: number, currency: string = 'USD') => {
-    return new Intl.NumberFormat('en-US', {
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-PK', {
       style: 'currency',
-      currency: currency
+      currency: 'PKR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
     }).format(amount)
   }
 
@@ -985,7 +987,7 @@ export default function PaymentRemindersPage() {
                       </div>
                     </div>
                     <div style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-                      {reminder.amount ? formatCurrency(reminder.amount, reminder.currency) : '-'}
+                      {reminder.amount ? formatCurrency(reminder.amount) : '-'}
                     </div>
                     <div>
                       <PriorityBadge priority={reminder.priority}>
@@ -1062,7 +1064,7 @@ export default function PaymentRemindersPage() {
                     </div>
                     {reminder.amount && (
                       <div style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.8)', marginTop: '0.25rem' }}>
-                        {formatCurrency(reminder.amount, reminder.currency)}
+                        {formatCurrency(reminder.amount)}
                       </div>
                     )}
                   </UpcomingReminder>

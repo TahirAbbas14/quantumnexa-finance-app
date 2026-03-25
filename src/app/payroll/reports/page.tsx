@@ -100,11 +100,13 @@ export default function PayrollReportsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('2024-01');
   const [reportType, setReportType] = useState<'summary' | 'department' | 'trends' | 'taxes' | 'deductions'>('summary');
   const [loading, setLoading] = useState(true);
+  const [exportingPDF, setExportingPDF] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   // Authentication check
   useEffect(() => {
     if (!user) {
-      router.push('/auth/login');
+      router.push('/login');
     }
   }, [user, router]);
 
@@ -250,9 +252,9 @@ export default function PayrollReportsPage() {
   }, [fetchPayrollData]);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-PK', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'PKR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
@@ -261,6 +263,121 @@ export default function PayrollReportsPage() {
   const formatMonth = (monthStr: string) => {
     const date = new Date(monthStr + '-01');
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+  };
+
+  const buildExportData = () => {
+    const monthLabel = formatMonth(selectedPeriod);
+    const dateRange = monthLabel;
+
+    if (reportType === 'summary') {
+      return {
+        title: `Payroll Summary`,
+        subtitle: monthLabel,
+        dateRange,
+        data: payrollSummary
+          .slice()
+          .sort((a, b) => a.month.localeCompare(b.month))
+          .map((row) => ({
+            month: row.month,
+            total_gross_pay: row.total_gross_pay,
+            total_net_pay: row.total_net_pay,
+            total_deductions: row.total_deductions,
+            total_taxes: row.total_taxes,
+            total_bonuses: row.total_bonuses,
+            employee_count: row.employee_count,
+            average_salary: Math.round(row.average_salary)
+          }))
+      };
+    }
+
+    if (reportType === 'department') {
+      return {
+        title: `Payroll by Department`,
+        subtitle: monthLabel,
+        dateRange,
+        data: departmentPayroll.map((row) => ({
+          department: row.department,
+          employee_count: row.employee_count,
+          total_payroll: row.total_payroll,
+          average_salary: row.average_salary,
+          total_overtime: row.total_overtime
+        }))
+      };
+    }
+
+    if (reportType === 'trends') {
+      return {
+        title: `Payroll Trends`,
+        subtitle: 'Last 6 months',
+        dateRange,
+        data: payrollTrends.map((row) => ({
+          month: row.month,
+          payroll_cost: row.payroll_cost,
+          employee_count: row.employee_count,
+          average_per_employee: row.average_per_employee
+        }))
+      };
+    }
+
+    if (reportType === 'taxes') {
+      return {
+        title: `Tax Breakdown`,
+        subtitle: monthLabel,
+        dateRange,
+        data: taxBreakdown.map((row) => ({
+          tax_type: row.tax_type,
+          name: row.name,
+          amount: row.amount,
+          percentage: row.percentage
+        }))
+      };
+    }
+
+    return {
+      title: `Deductions Breakdown`,
+      subtitle: monthLabel,
+      dateRange,
+      data: deductionBreakdown.map((row) => ({
+        deduction_type: row.deduction_type,
+        amount: row.amount,
+        employee_count: row.employee_count,
+        average_per_employee: row.employee_count ? row.amount / row.employee_count : 0
+      }))
+    };
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      setExportingPDF(true);
+      const { exportToPDF } = await import('@/lib/exportUtils');
+      const data = buildExportData();
+      await exportToPDF('payroll-report-print-content', data, {
+        filename: `payroll-report-${reportType}-${selectedPeriod}`,
+        orientation: 'portrait',
+        format: 'a4',
+        includeHeader: true,
+        includeFooter: true
+      });
+    } catch (error) {
+      console.error('Error exporting payroll report PDF:', error);
+      alert('Failed to export PDF');
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setExportingExcel(true);
+      const { exportToExcel } = await import('@/lib/exportUtils');
+      const data = buildExportData();
+      exportToExcel(data, { filename: `payroll-report-${reportType}-${selectedPeriod}` });
+    } catch (error) {
+      console.error('Error exporting payroll report Excel:', error);
+      alert('Failed to export Excel');
+    } finally {
+      setExportingExcel(false);
+    }
   };
 
   const ChartContainer = styled.div`
@@ -507,13 +624,13 @@ const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'
               </ControlGroup>
             </ControlsLeft>
             <ControlsRight>
-              <Button variant="primary">
+              <Button variant="primary" onClick={handleExportPDF} disabled={exportingPDF}>
                 <Download size={16} />
-                Export PDF
+                {exportingPDF ? 'Exporting...' : 'Export PDF'}
               </Button>
-              <Button variant="secondary">
+              <Button variant="secondary" onClick={handleExportExcel} disabled={exportingExcel}>
                 <FileText size={16} />
-                Export Excel
+                {exportingExcel ? 'Exporting...' : 'Export Excel'}
               </Button>
             </ControlsRight>
           </ControlsRow>
@@ -822,6 +939,122 @@ const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'
           </Card>
         )}
       </Container>
+      <div
+        id="payroll-report-print-content"
+        style={{
+          position: 'fixed',
+          left: '-10000px',
+          top: 0,
+          width: '820px',
+          padding: '24px',
+          background: '#ffffff',
+          color: '#111827',
+          fontFamily:
+            'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: '18px', fontWeight: 800 }}>Payroll Report</div>
+            <div style={{ marginTop: '6px', color: '#6b7280', fontSize: '13px' }}>
+              {reportType.toUpperCase()} • {formatMonth(selectedPeriod)}
+            </div>
+          </div>
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 999, padding: '6px 10px', fontSize: '12px' }}>
+            {new Date().toLocaleDateString()}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginTop: '14px' }}>
+          {[
+            { label: 'Total Payroll Cost', value: formatCurrency(totalPayrollCost) },
+            { label: 'Total Employees', value: String(totalEmployees) },
+            { label: 'Average Salary', value: formatCurrency(averageSalary) },
+            { label: 'Total Deductions', value: formatCurrency(totalDeductions) }
+          ].map((item) => (
+            <div
+              key={item.label}
+              style={{
+                border: '1px solid #e5e7eb',
+                borderRadius: '12px',
+                padding: '12px',
+                background: '#ffffff'
+              }}
+            >
+              <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 700, textTransform: 'uppercase' }}>
+                {item.label}
+              </div>
+              <div style={{ marginTop: '6px', fontSize: '18px', fontWeight: 800 }}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ height: '1px', background: '#e5e7eb', marginTop: '16px', marginBottom: '12px' }} />
+
+        <div style={{ fontSize: '13px', fontWeight: 800, marginBottom: '8px' }}>
+          {reportType === 'summary'
+            ? 'Monthly Summary'
+            : reportType === 'department'
+              ? 'Department Breakdown'
+              : reportType === 'trends'
+                ? 'Trends'
+                : reportType === 'taxes'
+                  ? 'Tax Breakdown'
+                  : 'Deductions'}
+        </div>
+
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#f9fafb' }}>
+                {Object.keys(buildExportData().data[0] || { item: '' }).map((key) => (
+                  <th
+                    key={key}
+                    style={{
+                      textAlign: 'left',
+                      padding: '10px 12px',
+                      fontSize: '11px',
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      color: '#6b7280',
+                      borderBottom: '1px solid #e5e7eb'
+                    }}
+                  >
+                    {key.replaceAll('_', ' ')}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {buildExportData().data.length === 0 ? (
+                <tr>
+                  <td style={{ padding: '12px', color: '#6b7280', fontSize: '13px' }} colSpan={1}>
+                    No data
+                  </td>
+                </tr>
+              ) : (
+                buildExportData()
+                  .data.slice(0, 30)
+                  .map((row, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                      {Object.values(row).map((value, cellIdx) => (
+                        <td key={cellIdx} style={{ padding: '10px 12px', fontSize: '13px' }}>
+                          {typeof value === 'number' ? value.toLocaleString() : String(value ?? '')}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {buildExportData().data.length > 30 && (
+          <div style={{ marginTop: '10px', fontSize: '12px', color: '#6b7280' }}>
+            Showing first 30 rows. Export Excel for full data.
+          </div>
+        )}
+      </div>
     </DashboardLayout>
   );
 }

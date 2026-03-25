@@ -5,10 +5,12 @@ import styled from 'styled-components';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { createSupabaseClient } from '@/lib/supabase';
+import { formatPKR } from '@/lib/currency';
 import Button from '@/components/ui/Button';
 import { 
   Plus, 
   Search, 
+  Eye,
   Edit, 
   Trash2, 
   Mail, 
@@ -447,6 +449,13 @@ const ActionButton = styled.button`
     }
   }
 
+  &.view {
+    &:hover {
+      background: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+    }
+  }
+
   &.delete {
     &:hover {
       background: rgba(239, 68, 68, 0.2);
@@ -468,14 +477,14 @@ const LoadingState = styled.div`
 `;
 
 // Modal Components
-const Modal = styled.div<{ isOpen: boolean }>`
+const Modal = styled.div<{ $isOpen: boolean }>`
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.8);
-  display: ${props => props.isOpen ? 'flex' : 'none'};
+  display: ${props => (props.$isOpen ? 'flex' : 'none')};
   align-items: center;
   justify-content: center;
   z-index: 1000;
@@ -718,23 +727,40 @@ export default function EmployeesPage() {
 
     try {
       setError('');
+      const supabase = createSupabaseClient();
 
-      if (error) throw error;
+      if (!supabase) {
+        throw new Error('Supabase is not configured properly. Please check your environment variables.');
+      }
+
+      const baseSalary = Number(formData.base_salary);
+      if (!Number.isFinite(baseSalary)) {
+        throw new Error('Base salary is invalid');
+      }
+
+      const { error: insertError } = await supabase
+        .from('employees')
+        .insert([
+          {
+            user_id: user.id,
+            employee_id: formData.employee_id.trim(),
+            first_name: formData.first_name.trim(),
+            last_name: formData.last_name.trim(),
+            email: formData.email.trim(),
+            phone: formData.phone.trim() ? formData.phone.trim() : null,
+            department: formData.department.trim() ? formData.department.trim() : null,
+            position: formData.position.trim(),
+            employment_type: formData.employment_type,
+            status: formData.status,
+            base_salary: baseSalary,
+            hire_date: formData.hire_date
+          }
+        ]);
+
+      if (insertError) throw insertError;
       
       setIsAddModalOpen(false);
-      setFormData({
-        employee_id: '',
-        first_name: '',
-        last_name: '',
-        email: '',
-        phone: '',
-        department: '',
-        position: '',
-        employment_type: 'full-time',
-        status: 'active',
-        base_salary: '',
-        hire_date: ''
-      });
+      resetForm();
       fetchEmployees();
     } catch (error: unknown) {
       console.error('Error adding employee:', error);
@@ -835,8 +861,13 @@ export default function EmployeesPage() {
 
   const departments = Array.from(new Set(employees.map(e => e.department)));
 
+  useEffect(() => {
+    if (!user) {
+      router.push('/login');
+    }
+  }, [router, user]);
+
   if (!user) {
-    router.push('/login');
     return null;
   }
 
@@ -1017,10 +1048,16 @@ export default function EmployeesPage() {
                         {employee.status}
                       </StatusBadge>
                     </TableCell>
-                    <TableCell>${employee.base_salary.toLocaleString()}</TableCell>
+                    <TableCell>{formatPKR(employee.base_salary)}</TableCell>
                     <TableCell>{format(new Date(employee.hire_date), 'MMM dd, yyyy')}</TableCell>
                     <TableCell>
                       <ActionButtons>
+                        <ActionButton
+                          className="view"
+                          onClick={() => router.push(`/employees/${employee.id}`)}
+                        >
+                          <Eye size={16} />
+                        </ActionButton>
                         <ActionButton 
                           className="edit"
                           onClick={() => openEditModal(employee)}
@@ -1043,7 +1080,7 @@ export default function EmployeesPage() {
         </TableContainer>
 
         {/* Add Employee Modal */}
-        <Modal isOpen={isAddModalOpen}>
+        <Modal $isOpen={isAddModalOpen}>
           <ModalContent>
             <ModalHeader>
               <ModalTitle>Add New Employee</ModalTitle>
@@ -1176,7 +1213,7 @@ export default function EmployeesPage() {
         </Modal>
 
         {/* Edit Employee Modal */}
-        <Modal isOpen={isEditModalOpen}>
+        <Modal $isOpen={isEditModalOpen}>
           <ModalContent>
             <ModalHeader>
               <ModalTitle>Edit Employee</ModalTitle>

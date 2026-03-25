@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createSupabaseClient } from '@/lib/supabase'
+import { formatPKR } from '@/lib/currency'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import styled from 'styled-components'
 import { 
@@ -858,7 +859,7 @@ export default function SubscriptionsPage() {
                 <DollarSign />
               </StatIcon>
             </StatHeader>
-            <StatValue>${stats.monthlyTotal.toFixed(2)}</StatValue>
+            <StatValue>{formatPKR(stats.monthlyTotal)}</StatValue>
             <div style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>
               Monthly Total
             </div>
@@ -870,7 +871,7 @@ export default function SubscriptionsPage() {
                 <TrendingUp />
               </StatIcon>
             </StatHeader>
-            <StatValue>${stats.yearlyTotal.toFixed(2)}</StatValue>
+            <StatValue>{formatPKR(stats.yearlyTotal)}</StatValue>
             <div style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>
               Yearly Total
             </div>
@@ -933,7 +934,7 @@ export default function SubscriptionsPage() {
                       </div>
                     </div>
                     <div style={{ fontWeight: '500', color: 'white' }}>
-                      ${subscription.cost.toFixed(2)}
+                      {formatPKR(subscription.cost)}
                     </div>
                     <div style={{ textTransform: 'capitalize' }}>
                       {subscription.billing_cycle}
@@ -1015,7 +1016,7 @@ export default function SubscriptionsPage() {
                       </div>
                     </div>
                     <div style={{ color: 'white', fontWeight: '600' }}>
-                      ${sub.cost.toFixed(2)}
+                      {formatPKR(sub.cost)}
                     </div>
                   </div>
                 ))}

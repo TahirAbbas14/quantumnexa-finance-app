@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { createSupabaseClient } from '@/lib/supabase';
+import { formatPKR } from '@/lib/currency';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { 
@@ -998,21 +999,21 @@ export default function ClientDetailPage() {
                 <div className="icon income">
                   <TrendingUp size={20} />
                 </div>
-                <div className="value">${(summary.totalPaid || 0).toLocaleString()}</div>
+                <div className="value">{formatPKR(summary.totalPaid || 0)}</div>
                 <div className="label">Total Paid</div>
               </SummaryCard>
               <SummaryCard>
                 <div className="icon pending">
                   <CreditCard size={20} />
                 </div>
-                <div className="value">${(summary.totalPending || 0).toLocaleString()}</div>
+                <div className="value">{formatPKR(summary.totalPending || 0)}</div>
                 <div className="label">Pending</div>
               </SummaryCard>
               <SummaryCard>
                 <div className="icon income">
                   <Receipt size={20} />
                 </div>
-                <div className="value">${(summary.totalInvoiced || 0).toLocaleString()}</div>
+                <div className="value">{formatPKR(summary.totalInvoiced || 0)}</div>
                 <div className="label">Total Invoiced</div>
               </SummaryCard>
               <SummaryCard>
@@ -1060,7 +1061,7 @@ export default function ClientDetailPage() {
                       {invoices.map((invoice) => (
                         <tr key={invoice.id}>
                           <td>{invoice.invoice_number}</td>
-                          <td>${(invoice.amount || 0).toLocaleString()}</td>
+                          <td>{formatPKR(invoice.amount || 0)}</td>
                           <td>
                             <StatusBadge status={invoice.status}>
                               {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
@@ -1104,7 +1105,7 @@ export default function ClientDetailPage() {
                           <td>{project.name}</td>
                           <td>{project.project_type.replace('_', ' ')}</td>
                           <td>{project.pricing_type}</td>
-                          <td>${(project.amount || 0).toLocaleString()}</td>
+                          <td>{formatPKR(project.amount || 0)}</td>
                           <td>
                             <StatusBadge status={project.status}>
                               {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
@@ -1145,7 +1146,7 @@ export default function ClientDetailPage() {
                         <tr key={transaction.id}>
                           <td>{format(new Date(transaction.date), 'MMM d, yyyy')}</td>
                           <td>{transaction.description || 'Payment received'}</td>
-                          <td>${(transaction.amount || 0).toLocaleString()}</td>
+                          <td>{formatPKR(transaction.amount || 0)}</td>
                           <td>{transaction.category || 'N/A'}</td>
                           <td>
                             <StatusBadge status="paid">

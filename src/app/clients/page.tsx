@@ -1144,14 +1144,14 @@ const FilterButtons = styled.div`
   }
 `;
 
-const FilterButton = styled.button<{ active: boolean }>`
+const FilterButton = styled.button<{ $active: boolean }>`
   padding: 8px 16px;
   border-radius: 8px;
-  border: 1px solid ${props => props.active ? '#dc2626' : 'rgba(220, 38, 38, 0.2)'};
-  background: ${props => props.active 
+  border: 1px solid ${props => (props.$active ? '#dc2626' : 'rgba(220, 38, 38, 0.2)')};
+  background: ${props => props.$active 
     ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.2) 0%, rgba(239, 68, 68, 0.2) 100%)'
     : 'rgba(30, 30, 30, 0.5)'};
-  color: ${props => props.active ? '#ffffff' : 'rgba(255, 255, 255, 0.7)'};
+  color: ${props => (props.$active ? '#ffffff' : 'rgba(255, 255, 255, 0.7)')};
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -1160,7 +1160,7 @@ const FilterButton = styled.button<{ active: boolean }>`
 
   &:hover {
     border-color: rgba(220, 38, 38, 0.4);
-    background: ${props => props.active 
+    background: ${props => props.$active 
       ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.3) 0%, rgba(239, 68, 68, 0.3) 100%)'
       : 'rgba(220, 38, 38, 0.1)'};
     color: #ffffff;
@@ -1355,19 +1355,19 @@ export default function ClientsPage() {
           </FilterLabel>
           <FilterButtons>
             <FilterButton 
-              active={statusFilter === 'all'} 
+              $active={statusFilter === 'all'} 
               onClick={() => setStatusFilter('all')}
             >
               All Clients
             </FilterButton>
             <FilterButton 
-              active={statusFilter === 'active'} 
+              $active={statusFilter === 'active'} 
               onClick={() => setStatusFilter('active')}
             >
               Active
             </FilterButton>
             <FilterButton 
-              active={statusFilter === 'closed'} 
+              $active={statusFilter === 'closed'} 
               onClick={() => setStatusFilter('closed')}
             >
               Closed

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import styled from 'styled-components'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { createSupabaseClient } from '@/lib/supabase'
@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { formatPKR } from '@/lib/currency'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import { Plus, Search, Edit, Trash2, Calendar, DollarSign, User, Briefcase, Clock, Target, AlertCircle, CheckCircle, Pause, X, Filter } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Calendar, DollarSign, User, Briefcase, Clock, Target, AlertCircle, CheckCircle, Pause, X, Download, FileText } from 'lucide-react'
 import { format } from 'date-fns'
 
 // Styled Components matching dashboard theme
@@ -199,6 +199,55 @@ const TopSection = styled.div`
   @media (max-width: 768px) {
     flex-direction: column;
     align-items: stretch;
+  }
+`;
+
+const ActionsSection = styled.div`
+  display: flex;
+  gap: 12px;
+  align-items: center;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    justify-content: stretch;
+    flex-wrap: wrap;
+  }
+`;
+
+const ExportButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  @media (max-width: 768px) {
+    flex: 1;
+    justify-content: center;
   }
 `;
 
@@ -820,6 +869,8 @@ export default function ProjectsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [exportingPDF, setExportingPDF] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const { user } = useAuth();
   const supabase = createSupabaseClient();
 
@@ -921,6 +972,70 @@ export default function ProjectsPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const exportData = useMemo(() => {
+    const statusLabel = statusFilter === 'all' ? 'All' : statusFilter.replace('_', ' ');
+    const summary = {
+      total_projects: filteredProjects.length,
+      active: filteredProjects.filter(p => p.status === 'active').length,
+      completed: filteredProjects.filter(p => p.status === 'completed').length,
+      on_hold: filteredProjects.filter(p => p.status === 'on_hold').length,
+      cancelled: filteredProjects.filter(p => p.status === 'cancelled').length,
+      total_budget: filteredProjects.reduce((sum, p) => sum + (p.budget || 0), 0)
+    };
+
+    const data = filteredProjects.map((p) => ({
+      project_name: p.name,
+      client: p.clients?.name || '',
+      status: p.status.replace('_', ' '),
+      priority: p.priority,
+      budget: p.budget ?? '',
+      start_date: p.start_date ? format(new Date(p.start_date), 'yyyy-MM-dd') : '',
+      end_date: p.end_date ? format(new Date(p.end_date), 'yyyy-MM-dd') : '',
+      progress: `${p.progress ?? 0}%`,
+      created_at: format(new Date(p.created_at), 'yyyy-MM-dd')
+    }));
+
+    return {
+      title: 'Projects Report',
+      subtitle: `Status: ${statusLabel}${searchTerm ? ` • Search: ${searchTerm}` : ''}`,
+      dateRange: 'All records',
+      summary,
+      data
+    };
+  }, [filteredProjects, searchTerm, statusFilter]);
+
+  const handleExportPDF = async () => {
+    try {
+      setExportingPDF(true);
+      const { exportToPDF } = await import('@/lib/exportUtils');
+      await exportToPDF('projects-export-content', exportData, {
+        filename: `projects-${statusFilter === 'all' ? 'all' : statusFilter}`,
+        orientation: 'landscape',
+        format: 'a4',
+        includeHeader: true,
+        includeFooter: true
+      });
+    } catch (error) {
+      console.error('Error exporting projects PDF:', error);
+      alert('Failed to export PDF');
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setExportingExcel(true);
+      const { exportToExcel } = await import('@/lib/exportUtils');
+      exportToExcel(exportData, { filename: `projects-${statusFilter === 'all' ? 'all' : statusFilter}` });
+    } catch (error) {
+      console.error('Error exporting projects Excel:', error);
+      alert('Failed to export Excel');
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'active': return <Target className="w-4 h-4" />;
@@ -975,10 +1090,20 @@ export default function ProjectsPage() {
               <option value="cancelled">Cancelled</option>
             </FilterSelect>
           </FilterSection>
-          <StyledButton onClick={() => setShowAddForm(true)}>
-            <Plus className="w-5 h-5 mr-2" />
-            Add Project
-          </StyledButton>
+          <ActionsSection>
+            <ExportButton onClick={handleExportPDF} disabled={exportingPDF}>
+              <Download />
+              {exportingPDF ? 'Exporting PDF...' : 'Export PDF'}
+            </ExportButton>
+            <ExportButton onClick={handleExportExcel} disabled={exportingExcel}>
+              <FileText />
+              {exportingExcel ? 'Exporting...' : 'Export Excel'}
+            </ExportButton>
+            <StyledButton onClick={() => setShowAddForm(true)}>
+              <Plus className="w-5 h-5 mr-2" />
+              Add Project
+            </StyledButton>
+          </ActionsSection>
         </TopSection>
 
         {filteredProjects.length === 0 ? (
@@ -1101,6 +1226,111 @@ export default function ProjectsPage() {
           />
         )}
       </Container>
+      <div
+        id="projects-export-content"
+        style={{
+          position: 'fixed',
+          left: '-10000px',
+          top: 0,
+          width: '1120px',
+          padding: '24px',
+          background: '#ffffff',
+          color: '#111827',
+          fontFamily:
+            'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif'
+        }}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '12px' }}>
+          {[
+            { label: 'Total Projects', value: String(exportData.summary?.total_projects ?? 0) },
+            { label: 'Active', value: String(exportData.summary?.active ?? 0) },
+            { label: 'Completed', value: String(exportData.summary?.completed ?? 0) },
+            { label: 'Total Budget', value: formatPKR(Number(exportData.summary?.total_budget ?? 0)) }
+          ].map((item) => (
+            <div
+              key={item.label}
+              style={{
+                border: '1px solid #e5e7eb',
+                borderRadius: '12px',
+                padding: '12px',
+                background: '#ffffff'
+              }}
+            >
+              <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 700, textTransform: 'uppercase' }}>
+                {item.label}
+              </div>
+              <div style={{ marginTop: '6px', fontSize: '18px', fontWeight: 800 }}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ height: '1px', background: '#e5e7eb', marginTop: '16px', marginBottom: '12px' }} />
+
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#f9fafb' }}>
+                {[
+                  'Project',
+                  'Client',
+                  'Status',
+                  'Priority',
+                  'Budget',
+                  'Start Date',
+                  'End Date',
+                  'Progress',
+                  'Created'
+                ].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      textAlign: 'left',
+                      padding: '10px 12px',
+                      fontSize: '11px',
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      color: '#6b7280',
+                      borderBottom: '1px solid #e5e7eb'
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {exportData.data.length === 0 ? (
+                <tr>
+                  <td style={{ padding: '12px', color: '#6b7280', fontSize: '13px' }} colSpan={9}>
+                    No projects found for current filters.
+                  </td>
+                </tr>
+              ) : (
+                exportData.data.slice(0, 40).map((row, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '10px 12px', fontSize: '13px' }}>{String(row.project_name ?? '')}</td>
+                    <td style={{ padding: '10px 12px', fontSize: '13px' }}>{String(row.client ?? '')}</td>
+                    <td style={{ padding: '10px 12px', fontSize: '13px' }}>{String(row.status ?? '')}</td>
+                    <td style={{ padding: '10px 12px', fontSize: '13px' }}>{String(row.priority ?? '')}</td>
+                    <td style={{ padding: '10px 12px', fontSize: '13px' }}>
+                      {row.budget !== '' ? formatPKR(Number(row.budget)) : ''}
+                    </td>
+                    <td style={{ padding: '10px 12px', fontSize: '13px' }}>{String(row.start_date ?? '')}</td>
+                    <td style={{ padding: '10px 12px', fontSize: '13px' }}>{String(row.end_date ?? '')}</td>
+                    <td style={{ padding: '10px 12px', fontSize: '13px' }}>{String(row.progress ?? '')}</td>
+                    <td style={{ padding: '10px 12px', fontSize: '13px' }}>{String(row.created_at ?? '')}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        {exportData.data.length > 40 && (
+          <div style={{ marginTop: '10px', fontSize: '12px', color: '#6b7280' }}>
+            Showing first 40 rows in PDF. Export Excel for full data.
+          </div>
+        )}
+      </div>
     </DashboardLayout>
   );
 }

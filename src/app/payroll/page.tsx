@@ -11,7 +11,6 @@ import {
   Plus, 
   Search, 
   Eye, 
-  Edit, 
   DollarSign, 
   Users, 
   TrendingUp, 
@@ -558,11 +557,6 @@ const EmployeeName = styled.div`
   margin-bottom: 0.25rem;
 `;
 
-const EmployeeId = styled.div`
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.7);
-`;
-
 const StatusBadge = styled.span<{ status: string }>`
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
@@ -578,13 +572,13 @@ const StatusBadge = styled.span<{ status: string }>`
           color: #22c55e;
           border: 1px solid rgba(34, 197, 94, 0.3);
         `;
-      case 'pending':
+      case 'draft':
         return `
           background: rgba(251, 191, 36, 0.2);
           color: #fbbf24;
           border: 1px solid rgba(251, 191, 36, 0.3);
         `;
-      case 'processing':
+      case 'processed':
         return `
           background: rgba(59, 130, 246, 0.2);
           color: #3b82f6;
@@ -683,14 +677,14 @@ const EmptyStateDescription = styled.p`
   opacity: 0.8;
 `;
 
-const Modal = styled.div<{ isOpen: boolean }>`
+const Modal = styled.div<{ $isOpen: boolean }>`
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  display: ${({ isOpen }) => (isOpen ? 'flex' : 'none')};
+  display: ${({ $isOpen }) => ($isOpen ? 'flex' : 'none')};
   align-items: center;
   justify-content: center;
   z-index: 1000;
@@ -825,6 +819,7 @@ export default function PayrollPage() {
             email
           )
         `)
+        .eq('user_id', user.id)
         .order('pay_date', { ascending: false });
 
       if (payrollError) throw payrollError;
@@ -851,7 +846,7 @@ export default function PayrollPage() {
         total_deductions: record.total_deductions || 0,
         net_salary: record.net_salary || 0,
         currency: record.currency || 'PKR',
-        status: record.status || 'pending',
+        status: record.status || 'draft',
         payment_method: record.payment_method || 'bank_transfer'
       }));
 
@@ -861,7 +856,7 @@ export default function PayrollPage() {
       const totalPayroll = transformedRecords.reduce((sum, record) => sum + record.net_salary, 0);
       const totalEmployees = new Set(transformedRecords.map(record => record.employee_id)).size;
       const averageSalary = totalEmployees > 0 ? totalPayroll / totalEmployees : 0;
-      const pendingPayments = transformedRecords.filter(record => record.status === 'pending').length;
+      const pendingPayments = transformedRecords.filter(record => record.status === 'draft').length;
 
       setStats({
         totalPayroll,
@@ -898,6 +893,7 @@ export default function PayrollPage() {
   // Handle payroll processing
   const handleProcessPayroll = async (recordId: string) => {
     try {
+      if (!user) return;
       const supabase = createSupabaseClient();
       
       if (!supabase) {
@@ -906,10 +902,11 @@ export default function PayrollPage() {
       const { error } = await supabase
         .from('payroll')
         .update({ 
-          status: 'processing',
+          status: 'processed',
           updated_at: new Date().toISOString()
         })
-        .eq('id', recordId);
+        .eq('id', recordId)
+        .eq('user_id', user.id);
 
       if (error) throw error;
 
@@ -920,29 +917,6 @@ export default function PayrollPage() {
     } catch (err) {
       console.error('Error processing payroll:', err);
       setError('Failed to process payroll. Please try again.');
-    }
-  };
-
-  // Handle payment completion
-  const handleCompletePayment = async (recordId: string) => {
-    try {
-      const supabase = createSupabaseClient();
-      
-      const { error } = await supabase!
-        .from('payroll')
-        .update({ 
-          status: 'paid',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', recordId);
-
-      if (error) throw error;
-
-      // Refresh data
-      await fetchPayrollData();
-    } catch (err) {
-      console.error('Error completing payment:', err);
-      setError('Failed to complete payment. Please try again.');
     }
   };
 
@@ -977,7 +951,7 @@ export default function PayrollPage() {
               <Clock size={18} />
               History
             </StyledAddButton>
-            <StyledAddButton onClick={() => router.push('/payroll/process')}>
+            <StyledAddButton onClick={() => router.push('/payroll/calculate')}>
               <Plus size={18} />
               Process Payroll
             </StyledAddButton>
@@ -1043,8 +1017,8 @@ export default function PayrollPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="processing">Processing</option>
+              <option value="draft">Draft</option>
+              <option value="processed">Processed</option>
               <option value="paid">Paid</option>
               <option value="failed">Failed</option>
             </FilterSelect>
@@ -1101,7 +1075,6 @@ export default function PayrollPage() {
                         </EmployeeAvatar>
                         <EmployeeDetails>
                           <EmployeeName>{record.employee_name}</EmployeeName>
-                          <EmployeeId>ID: {record.employee_id}</EmployeeId>
                         </EmployeeDetails>
                       </EmployeeInfo>
                     </TableCell>
@@ -1127,7 +1100,7 @@ export default function PayrollPage() {
                         >
                           <Eye size={16} />
                         </ActionButton>
-                        {record.status === 'pending' && (
+                        {record.status === 'draft' && (
                           <ActionButton
                             onClick={() => {
                               setSelectedRecord(record);
@@ -1138,20 +1111,14 @@ export default function PayrollPage() {
                             <Play size={16} />
                           </ActionButton>
                         )}
-                        {record.status === 'processing' && (
+                        {record.status === 'processed' && (
                           <ActionButton
-                            onClick={() => handleCompletePayment(record.id)}
-                            title="Mark as Paid"
+                            onClick={() => router.push(`/payroll/${record.id}`)}
+                            title="Pay / Reverse"
                           >
                             <CheckCircle size={16} />
                           </ActionButton>
                         )}
-                        <ActionButton
-                          onClick={() => router.push(`/payroll/${record.id}/edit`)}
-                          title="Edit"
-                        >
-                          <Edit size={16} />
-                        </ActionButton>
                       </ActionButtons>
                     </TableCell>
                   </TableRow>
@@ -1162,7 +1129,7 @@ export default function PayrollPage() {
         </TableContainer>
 
         {/* Process Payment Modal */}
-        <Modal isOpen={showProcessModal}>
+        <Modal $isOpen={showProcessModal}>
           <ModalContent>
             <ModalHeader>
               <ModalTitle>Process Payment</ModalTitle>

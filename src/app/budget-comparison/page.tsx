@@ -103,19 +103,21 @@ const StatCard = styled(Card)`
 `;
 
 interface StatIconProps {
-  color?: string;
-  textColor?: string;
+  $color?: string;
+  $textColor?: string;
 }
 
-const StatIcon = styled.div<StatIconProps>`
+const StatIcon = styled.div.withConfig({
+  shouldForwardProp: (prop) => prop !== '$color' && prop !== '$textColor'
+})<StatIconProps>`
   width: 48px;
   height: 48px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: ${props => props.color || 'var(--primary-100)'};
-  color: ${props => props.textColor || 'var(--primary-600)'};
+  background: ${props => props.$color || 'var(--primary-100)'};
+  color: ${props => props.$textColor || 'var(--primary-600)'};
   margin-bottom: 1rem;
 `;
 
@@ -539,7 +541,7 @@ export default function BudgetComparisonPage() {
           <StatCard>
             <div className="flex justify-between items-start">
               <div>
-                <StatIcon color="var(--primary-100)" textColor="var(--primary-600)">
+                <StatIcon $color="var(--primary-100)" $textColor="var(--primary-600)">
                   <Target size={24} />
                 </StatIcon>
                 <h3 className="text-sm font-medium text-gray-600">Total Budgeted</h3>
@@ -553,7 +555,7 @@ export default function BudgetComparisonPage() {
           <StatCard>
             <div className="flex justify-between items-start">
               <div>
-                <StatIcon color="var(--warning-100)" textColor="var(--warning-600)">
+                <StatIcon $color="var(--warning-100)" $textColor="var(--warning-600)">
                   <Wallet size={24} />
                 </StatIcon>
                 <h3 className="text-sm font-medium text-gray-600">Total Spent</h3>
@@ -568,8 +570,8 @@ export default function BudgetComparisonPage() {
             <div className="flex justify-between items-start">
               <div>
                 <StatIcon 
-                  color={stats.totalDifference > 0 ? 'var(--error-100)' : 'var(--success-100)'} 
-                  textColor={stats.totalDifference > 0 ? 'var(--error-600)' : 'var(--success-600)'}
+                  $color={stats.totalDifference > 0 ? 'var(--error-100)' : 'var(--success-100)'} 
+                  $textColor={stats.totalDifference > 0 ? 'var(--error-600)' : 'var(--success-600)'}
                 >
                   {stats.totalDifference > 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
                 </StatIcon>
@@ -585,8 +587,8 @@ export default function BudgetComparisonPage() {
             <div className="flex justify-between items-start">
               <div>
                 <StatIcon 
-                  color={stats.overallPercentage > 100 ? 'var(--error-100)' : 'var(--success-100)'} 
-                  textColor={stats.overallPercentage > 100 ? 'var(--error-600)' : 'var(--success-600)'}
+                  $color={stats.overallPercentage > 100 ? 'var(--error-100)' : 'var(--success-100)'} 
+                  $textColor={stats.overallPercentage > 100 ? 'var(--error-600)' : 'var(--success-600)'}
                 >
                   <BarChart3 size={24} />
                 </StatIcon>

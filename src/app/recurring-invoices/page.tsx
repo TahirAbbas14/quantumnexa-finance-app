@@ -637,10 +637,12 @@ export default function RecurringInvoicesPage() {
     fetchData()
   }, [user?.id])
 
-  const formatCurrency = (amount: number, currency: string = 'USD') => {
-    return new Intl.NumberFormat('en-US', {
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-PK', {
       style: 'currency',
-      currency: currency
+      currency: 'PKR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
     }).format(amount)
   }
 
@@ -882,7 +884,7 @@ export default function RecurringInvoicesPage() {
                       </div>
                     </div>
                     <div style={{ fontWeight: '500', color: 'white' }}>
-                      {formatCurrency(template.amount, template.currency)}
+                      {formatCurrency(template.amount)}
                     </div>
                     <div style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
                       {formatFrequency(template.frequency, template.frequency_interval)}

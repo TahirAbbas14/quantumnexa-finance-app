@@ -811,9 +811,11 @@ export default function RecurringIncomePage() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-PK', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'PKR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
     }).format(amount)
   }
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import styled from 'styled-components'
 import { createSupabaseClient } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { formatPKR } from '@/lib/currency'
 import { format } from 'date-fns'
 import { FileText, Eye } from 'lucide-react'
 
@@ -342,7 +343,7 @@ export default function RecentInvoices() {
                   {invoice.status}
                 </StatusBadge>
                 <InvoiceAmount>
-                  ${invoice.total_amount.toLocaleString()}
+                  {formatPKR(invoice.total_amount)}
                 </InvoiceAmount>
                 <ViewButton>
                   <Eye size={16} />

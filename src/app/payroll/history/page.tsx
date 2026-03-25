@@ -23,9 +23,9 @@ interface PayrollRecord {
   overtime_hours: number;
   overtime_pay: number;
   bonuses: number;
-  status: 'processed' | 'pending' | 'cancelled';
+  status: 'draft' | 'processed' | 'paid';
   processed_date: string;
-  payment_method: 'direct_deposit' | 'check' | 'cash';
+  payment_method: 'bank_transfer' | 'cash' | 'cheque';
 }
 
 interface PayrollSummary {
@@ -460,23 +460,23 @@ const StatusBadge = styled.span<{ $status: string }>`
   
   ${props => {
     switch (props.$status) {
-      case 'processed':
+      case 'paid':
         return `
           background: rgba(16, 185, 129, 0.2);
           color: #10b981;
           border: 1px solid rgba(16, 185, 129, 0.3);
         `;
-      case 'pending':
+      case 'processed':
+        return `
+          background: rgba(59, 130, 246, 0.2);
+          color: #3b82f6;
+          border: 1px solid rgba(59, 130, 246, 0.3);
+        `;
+      case 'draft':
         return `
           background: rgba(245, 158, 11, 0.2);
           color: #f59e0b;
           border: 1px solid rgba(245, 158, 11, 0.3);
-        `;
-      case 'cancelled':
-        return `
-          background: rgba(239, 68, 68, 0.2);
-          color: #ef4444;
-          border: 1px solid rgba(239, 68, 68, 0.3);
         `;
       default:
         return `
@@ -558,8 +558,8 @@ const PaginationButton = styled.button<{ $active?: boolean }>`
 const Modal = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -568,43 +568,51 @@ const Modal = styled.div`
 `;
 
 const ModalContent = styled.div`
-  background: linear-gradient(135deg, rgba(20, 20, 20, 0.9) 0%, rgba(30, 30, 30, 0.9) 100%);
+  background: rgba(15, 15, 15, 0.95);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(220, 38, 38, 0.2);
-  border-radius: 16px;
-  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 14px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  padding: 20px;
   width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
+  max-width: 640px;
+  max-height: 88vh;
   overflow-y: auto;
 `;
 
 const ModalHeader = styled.div`
   display: flex;
-  align-items: center;
-  justify-content: between;
-  margin-bottom: 1.5rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
 `;
 
 const ModalTitle = styled.h3`
   color: white;
-  font-size: 1.25rem;
-  font-weight: 600;
-  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+`;
+
+const ModalSubtitle = styled.div`
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.65);
 `;
 
 const CloseButton = styled.button`
   color: rgba(255, 255, 255, 0.6);
-  background: none;
-  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 6px;
+  padding: 8px;
+  border-radius: 10px;
   transition: all 0.2s ease;
   
   &:hover {
     color: white;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.10);
   }
   
   svg {
@@ -616,43 +624,52 @@ const CloseButton = styled.button`
 const DetailsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 2rem;
-  margin-bottom: 2rem;
+  gap: 12px;
 `;
 
 const DetailsSection = styled.div`
-  h4 {
-    color: white;
-    font-weight: 600;
-    margin-bottom: 1rem;
-  }
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px;
+`;
+
+const SectionTitle = styled.div`
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-bottom: 10px;
 `;
 
 const DetailsList = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 10px;
 `;
 
 const DetailItem = styled.div`
   display: flex;
-  justify-content: between;
-  align-items: center;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
   
   span:first-child {
     color: rgba(255, 255, 255, 0.7);
     font-size: 0.875rem;
+    white-space: nowrap;
   }
   
   span:last-child {
     color: white;
     font-weight: 500;
     font-size: 0.875rem;
+    text-align: right;
+    word-break: break-word;
   }
   
   &.total {
-    padding-top: 0.75rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
     
     span {
       font-weight: 600;
@@ -668,27 +685,19 @@ const DetailItem = styled.div`
   }
 `;
 
-const ProcessingDetails = styled.div`
-  margin-top: 2rem;
-  
-  h4 {
-    color: white;
-    font-weight: 600;
-    margin-bottom: 1rem;
-  }
-`;
-
 const ProcessingGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
+  gap: 10px;
 `;
 
 const ModalActions = styled.div`
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 2rem;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 `;
 
 const LoadingContainer = styled.div`
@@ -735,6 +744,8 @@ export default function PayrollHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [payStubRecord, setPayStubRecord] = useState<PayrollRecord | null>(null);
+  const [downloadingPayStub, setDownloadingPayStub] = useState(false);
 
   // Authentication check
   useEffect(() => {
@@ -752,16 +763,31 @@ export default function PayrollHistoryPage() {
       if (!supabase) {
         throw new Error('Supabase client is not initialized');
       }
+      if (!user) {
+        setPayrollRecords([]);
+        setFilteredRecords([]);
+        setPayrollSummary({
+          total_records: 0,
+          total_gross_pay: 0,
+          total_net_pay: 0,
+          total_deductions: 0,
+          total_taxes: 0,
+          average_pay: 0
+        });
+        return;
+      }
       const { data: records, error: recordsError } = await supabase
         .from('payroll')
         .select(`
           *,
           employees (
+            employee_id,
             first_name,
             last_name,
             department
           )
         `)
+        .eq('user_id', user.id)
         .order('pay_date', { ascending: false });
 
       if (recordsError) throw recordsError;
@@ -769,7 +795,7 @@ export default function PayrollHistoryPage() {
       // Transform data to match interface
       const transformedRecords: PayrollRecord[] = records?.map(record => ({
         id: record.id,
-        employee_id: record.employee_id,
+        employee_id: record.employees?.employee_id || record.employee_id,
         employee_name: `${record.employees?.first_name} ${record.employees?.last_name}`,
         department: record.employees?.department || 'Unknown',
         pay_period_start: record.pay_period_start,
@@ -781,9 +807,9 @@ export default function PayrollHistoryPage() {
         overtime_hours: 0, // Calculate from overtime_amount if needed
         overtime_pay: record.overtime_amount || 0,
         bonuses: record.bonus_amount || 0,
-        status: record.status === 'paid' ? 'processed' : record.status,
+        status: record.status,
         processed_date: record.pay_date,
-        payment_method: record.payment_method === 'bank_transfer' ? 'direct_deposit' : record.payment_method
+        payment_method: record.payment_method
       })) || [];
 
       setPayrollRecords(transformedRecords);
@@ -828,7 +854,7 @@ export default function PayrollHistoryPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   // Calculate summary data from payroll records
   const calculateSummary = (records: PayrollRecord[]): PayrollSummary => {
@@ -877,7 +903,7 @@ export default function PayrollHistoryPage() {
   useEffect(() => {
     const filtered = payrollRecords.filter(record => {
        const matchesSearch = record.employee_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            record.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            record.employee_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             record.department.toLowerCase().includes(searchTerm.toLowerCase());
        
        const matchesDepartment = selectedDepartment === '' || record.department === selectedDepartment;
@@ -910,10 +936,11 @@ export default function PayrollHistoryPage() {
    }, [payrollRecords, searchTerm, selectedDepartment, selectedStatus, selectedPayPeriod, sortField, sortDirection]);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-PK', {
       style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2
+      currency: 'PKR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
     }).format(amount);
   };
 
@@ -924,6 +951,44 @@ export default function PayrollHistoryPage() {
       day: 'numeric'
     });
   };
+
+  const requestPayStubPDF = (record: PayrollRecord) => {
+    setPayStubRecord(record);
+    setDownloadingPayStub(true);
+  };
+
+  useEffect(() => {
+    const run = async () => {
+      if (!downloadingPayStub || !payStubRecord) return;
+      try {
+        const { exportToPDF } = await import('@/lib/exportUtils');
+        const dateRange = `${formatDate(payStubRecord.pay_period_start)} - ${formatDate(payStubRecord.pay_period_end)}`;
+        await exportToPDF(
+          'paystub-print-content',
+          {
+            title: 'Pay Stub',
+            subtitle: `${payStubRecord.employee_name} (${payStubRecord.employee_id})`,
+            dateRange,
+            data: []
+          },
+          {
+            filename: `paystub-${payStubRecord.employee_id}-${payStubRecord.pay_period_end.slice(0, 10)}`,
+            orientation: 'portrait',
+            format: 'a4',
+            includeHeader: false,
+            includeFooter: false
+          }
+        );
+      } catch (e) {
+        console.error('Error exporting pay stub PDF:', e);
+        alert('Failed to download PDF');
+      } finally {
+        setDownloadingPayStub(false);
+      }
+    };
+
+    run();
+  }, [downloadingPayStub, payStubRecord]);
 
   const getStatusBadge = (status: string) => {
     return (
@@ -1061,9 +1126,9 @@ export default function PayrollHistoryPage() {
                 onChange={(e) => setSelectedStatus(e.target.value)}
               >
                 <option value="">All Statuses</option>
+                <option value="draft">Draft</option>
                 <option value="processed">Processed</option>
-                <option value="pending">Pending</option>
-                <option value="cancelled">Cancelled</option>
+                <option value="paid">Paid</option>
               </Select>
 
               <Select
@@ -1091,15 +1156,9 @@ export default function PayrollHistoryPage() {
               <Table>
                 <TableHeader>
                   <tr>
-                    <TableHeaderCell onClick={() => handleSort('id')}>
-                      <div>
-                        Payroll ID
-                        {getSortIcon('id')}
-                      </div>
-                    </TableHeaderCell>
                     <TableHeaderCell onClick={() => handleSort('employee_name')}>
                       <div>
-                        Employee
+                        Employee Name
                         {getSortIcon('employee_name')}
                       </div>
                     </TableHeaderCell>
@@ -1138,9 +1197,6 @@ export default function PayrollHistoryPage() {
                 <TableBody>
                   {currentRecords.map((record) => (
                     <TableRow key={record.id}>
-                      <TableCell>
-                        {record.id}
-                      </TableCell>
                       <TableCell className="employee-info">
                         <div>{record.employee_name}</div>
                         <div>{record.employee_id}</div>
@@ -1211,12 +1267,24 @@ export default function PayrollHistoryPage() {
 
           {/* Payroll Details Modal */}
           {showDetails && selectedRecord && (
-            <Modal>
+            <Modal
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setShowDetails(false);
+                }
+              }}
+            >
               <ModalContent>
                 <ModalHeader>
-                  <ModalTitle>
-                    Payroll Details - {selectedRecord.id}
-                  </ModalTitle>
+                  <div>
+                    <ModalTitle>Payroll details</ModalTitle>
+                    <ModalSubtitle>
+                      {selectedRecord.employee_name} • {selectedRecord.employee_id} • {selectedRecord.department}
+                    </ModalSubtitle>
+                    <ModalSubtitle>
+                      {formatDate(selectedRecord.pay_period_start)} - {formatDate(selectedRecord.pay_period_end)} • {selectedRecord.id}
+                    </ModalSubtitle>
+                  </div>
                   <CloseButton onClick={() => setShowDetails(false)}>
                     <X />
                   </CloseButton>
@@ -1224,7 +1292,7 @@ export default function PayrollHistoryPage() {
 
                 <DetailsGrid>
                   <DetailsSection>
-                    <h4>Employee Information</h4>
+                    <SectionTitle>Employee</SectionTitle>
                     <DetailsList>
                       <DetailItem>
                         <span>Name:</span>
@@ -1248,7 +1316,7 @@ export default function PayrollHistoryPage() {
                   </DetailsSection>
 
                   <DetailsSection>
-                    <h4>Payment Information</h4>
+                    <SectionTitle>Salary</SectionTitle>
                     <DetailsList>
                       <DetailItem>
                         <span>Gross Pay:</span>
@@ -1278,8 +1346,8 @@ export default function PayrollHistoryPage() {
                   </DetailsSection>
                 </DetailsGrid>
 
-                <ProcessingDetails>
-                  <h4>Processing Details</h4>
+                <DetailsSection style={{ marginTop: '12px' }}>
+                  <SectionTitle>Processing</SectionTitle>
                   <ProcessingGrid>
                     <DetailItem>
                       <span>Status:</span>
@@ -1294,19 +1362,133 @@ export default function PayrollHistoryPage() {
                       <span>{selectedRecord.payment_method.replace('_', ' ')}</span>
                     </DetailItem>
                   </ProcessingGrid>
-                </ProcessingDetails>
+                </DetailsSection>
 
                 <ModalActions>
                   <Button variant="secondary" onClick={() => setShowDetails(false)}>
                     Close
                   </Button>
-                  <Button>
+                  <Button variant="secondary" onClick={() => requestPayStubPDF(selectedRecord)}>
                     <Download />
                     Download Pay Stub
+                  </Button>
+                  <Button onClick={() => router.push(`/payroll/${selectedRecord.id}`)}>
+                    <Eye />
+                    Open Payroll
                   </Button>
                 </ModalActions>
               </ModalContent>
             </Modal>
+          )}
+
+          {payStubRecord && (
+            <div
+              id="paystub-print-content"
+              style={{
+                position: 'fixed',
+                left: '-10000px',
+                top: 0,
+                width: '800px',
+                padding: '24px',
+                background: '#ffffff',
+                color: '#111827',
+                fontFamily:
+                  'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: 800 }}>Pay Stub</div>
+                  <div style={{ marginTop: '6px', color: '#6b7280', fontSize: '13px', lineHeight: 1.35 }}>
+                    {payStubRecord.employee_name} • {payStubRecord.employee_id} • {payStubRecord.department}
+                  </div>
+                  <div style={{ marginTop: '4px', color: '#6b7280', fontSize: '13px', lineHeight: 1.35 }}>
+                    {formatDate(payStubRecord.pay_period_start)} - {formatDate(payStubRecord.pay_period_end)} • Payroll ID: {payStubRecord.id}
+                  </div>
+                </div>
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: '999px', padding: '6px 10px', fontSize: '12px' }}>
+                  {payStubRecord.status}
+                </div>
+              </div>
+
+              <div style={{ height: '1px', background: '#e5e7eb', marginTop: '14px', marginBottom: '14px' }} />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '12px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#6b7280', marginBottom: '10px', textTransform: 'uppercase' }}>
+                    Employee
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ color: '#6b7280' }}>Name</div>
+                    <div style={{ fontWeight: 600, textAlign: 'right' }}>{payStubRecord.employee_name}</div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ color: '#6b7280' }}>Employee ID</div>
+                    <div style={{ fontWeight: 600, textAlign: 'right' }}>{payStubRecord.employee_id}</div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                    <div style={{ color: '#6b7280' }}>Department</div>
+                    <div style={{ fontWeight: 600, textAlign: 'right' }}>{payStubRecord.department}</div>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '12px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#6b7280', marginBottom: '10px', textTransform: 'uppercase' }}>
+                    Processing
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ color: '#6b7280' }}>Processed Date</div>
+                    <div style={{ fontWeight: 600, textAlign: 'right' }}>{formatDate(payStubRecord.processed_date)}</div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                    <div style={{ color: '#6b7280' }}>Payment Method</div>
+                    <div style={{ fontWeight: 600, textAlign: 'right' }}>{payStubRecord.payment_method.replace('_', ' ')}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '12px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#6b7280', marginBottom: '10px', textTransform: 'uppercase' }}>
+                    Earnings
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ color: '#6b7280' }}>Gross Pay</div>
+                    <div style={{ fontWeight: 600, textAlign: 'right' }}>{formatCurrency(payStubRecord.gross_pay)}</div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ color: '#6b7280' }}>Overtime Pay</div>
+                    <div style={{ fontWeight: 600, textAlign: 'right' }}>{formatCurrency(payStubRecord.overtime_pay)}</div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                    <div style={{ color: '#6b7280' }}>Bonuses</div>
+                    <div style={{ fontWeight: 600, textAlign: 'right' }}>{formatCurrency(payStubRecord.bonuses)}</div>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '12px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#6b7280', marginBottom: '10px', textTransform: 'uppercase' }}>
+                    Deductions
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ color: '#6b7280' }}>Total Deductions</div>
+                    <div style={{ fontWeight: 600, textAlign: 'right', color: '#b91c1c' }}>
+                      -{formatCurrency(payStubRecord.total_deductions)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ color: '#6b7280' }}>Total Taxes</div>
+                    <div style={{ fontWeight: 600, textAlign: 'right', color: '#b91c1c' }}>
+                      -{formatCurrency(payStubRecord.total_taxes)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                    <div style={{ color: '#6b7280' }}>Net Pay</div>
+                    <div style={{ fontWeight: 800, textAlign: 'right', color: '#047857' }}>{formatCurrency(payStubRecord.net_pay)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </ContentWrapper>
       </Container>

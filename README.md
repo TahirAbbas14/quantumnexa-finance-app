@@ -22,6 +22,10 @@ A comprehensive financial management application built with Next.js, TypeScript,
 
 ## Setup Instructions
 
+## User Manual
+
+See [USER_MANUAL.md](file:///d:/quantumnexa-finance-app/USER_MANUAL.md) for a detailed feature and workflow guide.
+
 ### 1. Clone and Install Dependencies
 
 ```bash

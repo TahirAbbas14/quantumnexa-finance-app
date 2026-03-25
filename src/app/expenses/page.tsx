@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import styled from 'styled-components';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,6 +16,7 @@ import {
   DollarSign, 
   Tag, 
   FileText,
+  Download,
   Filter,
   X,
   Receipt,
@@ -1534,6 +1535,43 @@ const LoadingSpinner = styled.div`
   }
 `;
 
+const ExportButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px 16px;
+    border-radius: 14px;
+  }
+`;
+
 export default function ExpensesPage() {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -1547,8 +1585,14 @@ export default function ExpensesPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [error, setError] = useState('');
+  const [exportingPDF, setExportingPDF] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
-  const categories = ['Food', 'Transportation', 'Entertainment', 'Utilities', 'Healthcare', 'Shopping', 'Other'];
+  const defaultCategories = useMemo(
+    () => ['Food', 'Transportation', 'Entertainment', 'Utilities', 'Healthcare', 'Shopping', 'Other', 'Salary'],
+    []
+  );
+  const [categories, setCategories] = useState<string[]>(defaultCategories);
 
   const dateFilterOptions = [
     { value: 'all', label: 'All Time' },
@@ -1565,6 +1609,50 @@ export default function ExpensesPage() {
       fetchExpenses();
     }
   }, [user, dateFilter, customStartDate, customEndDate]);
+
+  useEffect(() => {
+    const fetchBudgetCategories = async () => {
+      if (!user) return;
+      try {
+        const supabase = createSupabaseClient();
+        if (!supabase) return;
+        const { data, error } = await supabase
+          .from('budget_categories')
+          .select('name')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('name');
+        if (error) throw error;
+
+        const budgetCategoryNames = (data || []).map((r: { name: string }) => r.name).filter(Boolean);
+
+        setCategories((prev) => {
+          const normalize = (v: string) => v.trim().toLowerCase();
+          const seen = new Set<string>();
+          const ordered: string[] = [];
+
+          const push = (v: string) => {
+            const key = normalize(v);
+            if (!key) return;
+            if (seen.has(key)) return;
+            seen.add(key);
+            ordered.push(v);
+          };
+
+          defaultCategories.forEach(push);
+          budgetCategoryNames.forEach(push);
+          prev.forEach(push);
+          if (categoryFilter !== 'all') push(categoryFilter);
+
+          return ordered;
+        });
+      } catch (e) {
+        console.error('Error fetching budget categories:', e);
+      }
+    };
+
+    fetchBudgetCategories();
+  }, [categoryFilter, defaultCategories, user]);
 
   const getDateRange = () => {
     const now = new Date();
@@ -1639,6 +1727,28 @@ export default function ExpensesPage() {
 
       if (error) throw error;
       setExpenses(data || []);
+      setCategories((prev) => {
+        const normalize = (v: string) => v.trim().toLowerCase();
+        const seen = new Set<string>();
+        const ordered: string[] = [];
+
+        const push = (v: string) => {
+          const key = normalize(v);
+          if (!key) return;
+          if (seen.has(key)) return;
+          seen.add(key);
+          ordered.push(v);
+        };
+
+        defaultCategories.forEach(push);
+        prev.forEach(push);
+        (data || []).forEach((e: { category?: string }) => {
+          if (e.category) push(e.category);
+        });
+        if (categoryFilter !== 'all') push(categoryFilter);
+
+        return ordered;
+      });
     } catch (error) {
       console.error('Error fetching expenses:', error);
       setError('Failed to load expenses');
@@ -1650,7 +1760,9 @@ export default function ExpensesPage() {
   const filteredExpenses = expenses.filter(expense => {
     const matchesSearch = expense.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          expense.category?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || expense.category === categoryFilter;
+    const matchesCategory =
+      categoryFilter === 'all' ||
+      (expense.category || '').toLowerCase() === categoryFilter.toLowerCase();
     return matchesSearch && matchesCategory;
   });
 
@@ -1672,6 +1784,113 @@ export default function ExpensesPage() {
     return expenseDate.getMonth() === currentDate.getMonth() && 
            expenseDate.getFullYear() === currentDate.getFullYear();
   }).reduce((sum, expense) => sum + expense.amount, 0);
+
+  const exportData = useMemo(() => {
+    const computeRange = () => {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      switch (dateFilter) {
+        case 'last-week': {
+          const start = new Date(today);
+          start.setDate(today.getDate() - 7);
+          return { start, end: today };
+        }
+        case 'last-month': {
+          const start = new Date(today);
+          start.setMonth(today.getMonth() - 1);
+          return { start, end: today };
+        }
+        case 'last-3-months': {
+          const start = new Date(today);
+          start.setMonth(today.getMonth() - 3);
+          return { start, end: today };
+        }
+        case 'last-6-months': {
+          const start = new Date(today);
+          start.setMonth(today.getMonth() - 6);
+          return { start, end: today };
+        }
+        case 'last-year': {
+          const start = new Date(today);
+          start.setFullYear(today.getFullYear() - 1);
+          return { start, end: today };
+        }
+        case 'custom':
+          if (customStartDate && customEndDate) {
+            return { start: new Date(customStartDate), end: new Date(customEndDate) };
+          }
+          return null;
+        default:
+          return null;
+      }
+    };
+
+    const range = computeRange();
+    const dateRangeLabel =
+      dateFilter === 'all'
+        ? 'All Time'
+        : dateFilter === 'custom'
+          ? `${customStartDate || ''}${customStartDate && customEndDate ? ' to ' : ''}${customEndDate || ''}`.trim() || 'Custom Range'
+          : range
+            ? `${format(range.start, 'MMM d, yyyy')} - ${format(range.end, 'MMM d, yyyy')}`
+            : 'All Time';
+
+    const totalAmount = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const avgAmount = filteredExpenses.length > 0 ? totalAmount / filteredExpenses.length : 0;
+    const categoriesCount = new Set(filteredExpenses.map((e) => e.category).filter(Boolean)).size;
+
+    return {
+      title: 'Expenses Report',
+      subtitle: `Category: ${categoryFilter === 'all' ? 'All' : categoryFilter}${searchTerm ? ` • Search: ${searchTerm}` : ''}`,
+      dateRange: dateRangeLabel,
+      summary: {
+        total_records: filteredExpenses.length,
+        total_amount: totalAmount,
+        average_amount: avgAmount,
+        categories: categoriesCount
+      },
+      data: filteredExpenses.map((e) => ({
+        date: e.date ? format(new Date(e.date), 'yyyy-MM-dd') : '',
+        description: e.description || '',
+        category: e.category || '',
+        amount: e.amount ?? '',
+        notes: e.notes || ''
+      }))
+    };
+  }, [categoryFilter, customEndDate, customStartDate, dateFilter, filteredExpenses, searchTerm]);
+
+  const handleExportPDF = async () => {
+    try {
+      setExportingPDF(true);
+      const { exportToPDF } = await import('@/lib/exportUtils');
+      await exportToPDF('expenses-export-content', exportData, {
+        filename: `expenses-${categoryFilter === 'all' ? 'all' : categoryFilter}`,
+        orientation: 'landscape',
+        format: 'a4',
+        includeHeader: true,
+        includeFooter: true
+      });
+    } catch (error) {
+      console.error('Error exporting expenses PDF:', error);
+      alert('Failed to export PDF');
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setExportingExcel(true);
+      const { exportToExcel } = await import('@/lib/exportUtils');
+      exportToExcel(exportData, { filename: `expenses-${categoryFilter === 'all' ? 'all' : categoryFilter}` });
+    } catch (error) {
+      console.error('Error exporting expenses Excel:', error);
+      alert('Failed to export Excel');
+    } finally {
+      setExportingExcel(false);
+    }
+  };
 
   const handleDeleteExpense = async (id: string) => {
     try {
@@ -1718,6 +1937,14 @@ export default function ExpensesPage() {
             <p>Track and manage your expenses efficiently with detailed insights and analytics.</p>
           </HeaderContent>
           <HeaderActions>
+            <ExportButton onClick={handleExportPDF} disabled={exportingPDF}>
+              <Download size={18} />
+              {exportingPDF ? 'Exporting PDF...' : 'Export PDF'}
+            </ExportButton>
+            <ExportButton onClick={handleExportExcel} disabled={exportingExcel}>
+              <FileText size={18} />
+              {exportingExcel ? 'Exporting...' : 'Export Excel'}
+            </ExportButton>
             <StyledAddButton onClick={() => setShowModal(true)}>
               <Plus size={20} />
               Add Expense
@@ -1874,6 +2101,7 @@ export default function ExpensesPage() {
 
         {showModal && (
           <AddExpenseModal 
+            categories={categories}
             onClose={() => setShowModal(false)} 
             onSuccess={() => {
               setShowModal(false);
@@ -1885,6 +2113,7 @@ export default function ExpensesPage() {
         {showEditModal && editingExpense && (
           <EditExpenseModal 
             expense={editingExpense}
+            categories={categories}
             onClose={() => {
               setShowEditModal(false);
               setEditingExpense(null);
@@ -1897,11 +2126,110 @@ export default function ExpensesPage() {
           />
         )}
       </Container>
+      <div
+        id="expenses-export-content"
+        style={{
+          position: 'fixed',
+          left: '-10000px',
+          top: 0,
+          width: '1120px',
+          padding: '24px',
+          background: '#ffffff',
+          color: '#111827',
+          fontFamily:
+            'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif'
+        }}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '12px' }}>
+          {[
+            { label: 'Total Records', value: String(exportData.summary?.total_records ?? 0) },
+            { label: 'Total Amount', value: formatPKR(Number(exportData.summary?.total_amount ?? 0)) },
+            { label: 'Average Amount', value: formatPKR(Number(exportData.summary?.average_amount ?? 0)) },
+            { label: 'Categories', value: String(exportData.summary?.categories ?? 0) }
+          ].map((item) => (
+            <div
+              key={item.label}
+              style={{
+                border: '1px solid #e5e7eb',
+                borderRadius: '12px',
+                padding: '12px',
+                background: '#ffffff'
+              }}
+            >
+              <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 700, textTransform: 'uppercase' }}>
+                {item.label}
+              </div>
+              <div style={{ marginTop: '6px', fontSize: '18px', fontWeight: 800 }}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ height: '1px', background: '#e5e7eb', marginTop: '16px', marginBottom: '12px' }} />
+
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#f9fafb' }}>
+                {['Date', 'Description', 'Category', 'Amount', 'Notes'].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      textAlign: 'left',
+                      padding: '10px 12px',
+                      fontSize: '11px',
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      color: '#6b7280',
+                      borderBottom: '1px solid #e5e7eb'
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {exportData.data.length === 0 ? (
+                <tr>
+                  <td style={{ padding: '12px', color: '#6b7280', fontSize: '13px' }} colSpan={5}>
+                    No expenses found for current filters.
+                  </td>
+                </tr>
+              ) : (
+                exportData.data.slice(0, 40).map((row, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '10px 12px', fontSize: '13px', whiteSpace: 'nowrap' }}>{String(row.date ?? '')}</td>
+                    <td style={{ padding: '10px 12px', fontSize: '13px' }}>{String(row.description ?? '')}</td>
+                    <td style={{ padding: '10px 12px', fontSize: '13px', whiteSpace: 'nowrap' }}>{String(row.category ?? '')}</td>
+                    <td style={{ padding: '10px 12px', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                      {Number.isFinite(Number(row.amount)) ? formatPKR(Number(row.amount)) : ''}
+                    </td>
+                    <td style={{ padding: '10px 12px', fontSize: '13px' }}>{String(row.notes ?? '')}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        {exportData.data.length > 40 && (
+          <div style={{ marginTop: '10px', fontSize: '12px', color: '#6b7280' }}>
+            Showing first 40 rows in PDF. Export Excel for full data.
+          </div>
+        )}
+      </div>
     </DashboardLayout>
   );
 }
 
-function AddExpenseModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+function AddExpenseModal({
+  categories,
+  onClose,
+  onSuccess
+}: {
+  categories: string[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     description: '',
@@ -1913,7 +2241,20 @@ function AddExpenseModal({ onClose, onSuccess }: { onClose: () => void; onSucces
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const categories = ['Food', 'Transportation', 'Entertainment', 'Utilities', 'Healthcare', 'Shopping', 'Other'];
+  const categoryOptions = useMemo(() => {
+    const normalize = (v: string) => v.trim().toLowerCase();
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    const push = (v: string) => {
+      const key = normalize(v);
+      if (!key) return;
+      if (seen.has(key)) return;
+      seen.add(key);
+      ordered.push(v);
+    };
+    categories.forEach(push);
+    return ordered;
+  }, [categories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2052,7 +2393,7 @@ function AddExpenseModal({ onClose, onSuccess }: { onClose: () => void; onSucces
               required
             >
               <option value="">Select category</option>
-              {categories.map(category => (
+              {categoryOptions.map(category => (
                 <option key={category} value={category}>{category}</option>
               ))}
             </Select>
@@ -2103,7 +2444,17 @@ function AddExpenseModal({ onClose, onSuccess }: { onClose: () => void; onSucces
   );
 }
 
-function EditExpenseModal({ expense, onClose, onSuccess }: { expense: Expense; onClose: () => void; onSuccess: () => void }) {
+function EditExpenseModal({
+  expense,
+  categories,
+  onClose,
+  onSuccess
+}: {
+  expense: Expense;
+  categories: string[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     description: expense.description,
@@ -2115,7 +2466,21 @@ function EditExpenseModal({ expense, onClose, onSuccess }: { expense: Expense; o
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const categories = ['Food', 'Transportation', 'Entertainment', 'Utilities', 'Healthcare', 'Shopping', 'Other'];
+  const categoryOptions = useMemo(() => {
+    const normalize = (v: string) => v.trim().toLowerCase();
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    const push = (v: string) => {
+      const key = normalize(v);
+      if (!key) return;
+      if (seen.has(key)) return;
+      seen.add(key);
+      ordered.push(v);
+    };
+    categories.forEach(push);
+    if (formData.category) push(formData.category);
+    return ordered;
+  }, [categories, formData.category]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2235,7 +2600,7 @@ function EditExpenseModal({ expense, onClose, onSuccess }: { expense: Expense; o
               required
             >
               <option value="">Select category</option>
-              {categories.map(category => (
+              {categoryOptions.map(category => (
                 <option key={category} value={category}>{category}</option>
               ))}
             </Select>

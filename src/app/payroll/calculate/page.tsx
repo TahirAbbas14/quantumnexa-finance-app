@@ -5,57 +5,41 @@ import styled from 'styled-components';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Calculator, DollarSign, Plus, Minus, FileText, Save, Eye, Users, Calendar } from 'lucide-react';
+import { Calculator, DollarSign, Plus, Minus, Save, Users, Calendar } from 'lucide-react';
+import { createSupabaseClient } from '@/lib/supabase';
 
 interface Employee {
   id: string;
+  employee_code: string;
   name: string;
   position: string;
   department: string;
   base_salary: number;
   hourly_rate: number;
-  employment_type: 'full-time' | 'part-time' | 'contract';
-  tax_id: string;
-  bank_account: string;
+  employment_type: 'full-time' | 'part-time' | 'contract' | 'intern';
 }
 
 interface PayrollCalculation {
   employee_id: string;
+  employee_code: string;
   employee_name: string;
   pay_period_start: string;
   pay_period_end: string;
+  base_salary_original: number;
+  salary_adjustment: number;
   base_salary: number;
+  allowances: number;
+  bonus_amount: number;
   overtime_hours: number;
   overtime_rate: number;
   overtime_pay: number;
-  bonuses: PayrollBonus[];
-  deductions: PayrollDeduction[];
   gross_pay: number;
-  tax_deductions: TaxDeduction[];
+  tax_deduction: number;
+  provident_fund: number;
+  other_deductions: number;
+  total_deductions: number;
   net_pay: number;
   status: 'draft' | 'calculated' | 'approved' | 'paid';
-}
-
-interface PayrollBonus {
-  id: string;
-  type: string;
-  description: string;
-  amount: number;
-  is_taxable: boolean;
-}
-
-interface PayrollDeduction {
-  id: string;
-  type: string;
-  description: string;
-  amount: number;
-  is_pre_tax: boolean;
-}
-
-interface TaxDeduction {
-  type: string;
-  rate: number;
-  amount: number;
 }
 
 // Styled Components
@@ -481,6 +465,8 @@ export default function PayrollCalculatePage() {
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Authentication check
   useEffect(() => {
@@ -490,71 +476,122 @@ export default function PayrollCalculatePage() {
     }
   }, [user, router]);
 
-  // Mock employees data
   useEffect(() => {
-    const mockEmployees: Employee[] = [
-      {
-        id: 'EMP001',
-        name: 'Ahmed Ali',
-        position: 'Software Engineer',
-        department: 'Engineering',
-        base_salary: 120000,
-        hourly_rate: 57.69,
-        employment_type: 'full-time',
-        tax_id: 'TAX001',
-        bank_account: 'ACC001'
-      },
-      {
-        id: 'EMP002',
-        name: 'Fatima Khan',
-        position: 'Product Manager',
-        department: 'Product',
-        base_salary: 110000,
-        hourly_rate: 52.88,
-        employment_type: 'full-time',
-        tax_id: 'TAX002',
-        bank_account: 'ACC002'
-      },
-      {
-        id: 'EMP003',
-        name: 'Hassan Sheikh',
-        position: 'Designer',
-        department: 'Design',
-        base_salary: 85000,
-        hourly_rate: 40.87,
-        employment_type: 'full-time',
-        tax_id: 'TAX003',
-        bank_account: 'ACC003'
-      },
-      {
-        id: 'EMP004',
-        name: 'Ayesha Malik',
-        position: 'Marketing Specialist',
-        department: 'Marketing',
-        base_salary: 65000,
-        hourly_rate: 31.25,
-        employment_type: 'part-time',
-        tax_id: 'TAX004',
-        bank_account: 'ACC004'
-      },
-      {
-        id: 'EMP005',
-        name: 'Usman Ahmed',
-        position: 'Sales Representative',
-        department: 'Sales',
-        base_salary: 55000,
-        hourly_rate: 26.44,
-        employment_type: 'full-time',
-        tax_id: 'TAX005',
-        bank_account: 'ACC005'
-      }
-    ];
+    const fetchEmployees = async () => {
+      if (!user) return;
+      try {
+        setLoading(true);
+        setError(null);
+        const supabase = createSupabaseClient();
 
-    setTimeout(() => {
-      setEmployees(mockEmployees);
-      setLoading(false);
-    }, 1000);
-  }, []);
+        if (!supabase) {
+          throw new Error('Supabase is not configured properly. Please check your environment variables.');
+        }
+
+        const { data, error: fetchError } = await supabase
+          .from('employees')
+          .select('id, employee_id, first_name, last_name, position, department, base_salary, hourly_rate, employment_type')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (fetchError) throw fetchError;
+
+        const rows = (data || []) as Array<{
+          id: string;
+          employee_id: string;
+          first_name: string;
+          last_name: string;
+          position: string;
+          department: string | null;
+          base_salary: number;
+          hourly_rate: number | null;
+          employment_type: 'full-time' | 'part-time' | 'contract' | 'intern';
+        }>;
+
+        setEmployees(
+          rows.map((row) => {
+            const monthlyHours = 160;
+            const fallbackHourlyRate = row.base_salary && monthlyHours ? row.base_salary / monthlyHours : 0;
+            return {
+              id: row.id,
+              employee_code: row.employee_id,
+              name: `${row.first_name} ${row.last_name}`.trim(),
+              position: row.position,
+              department: row.department || 'Unknown',
+              base_salary: row.base_salary || 0,
+              hourly_rate: row.hourly_rate ?? fallbackHourlyRate,
+              employment_type: row.employment_type
+            };
+          })
+        );
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Failed to load employees';
+        setEmployees([]);
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEmployees();
+  }, [user]);
+
+  const buildCalculation = (employee: Employee, existing?: PayrollCalculation): PayrollCalculation => {
+    const baseSalaryOriginal = existing?.base_salary_original ?? employee.base_salary;
+    const salaryAdjustment = existing?.salary_adjustment ?? 0;
+    const baseSalary = baseSalaryOriginal + salaryAdjustment;
+
+    const allowances = existing?.allowances ?? 0;
+    const bonusAmount = existing?.bonus_amount ?? 0;
+
+    const overtimeHours = existing?.overtime_hours ?? 0;
+    const overtimeRate = existing?.overtime_rate ?? employee.hourly_rate * 1.5;
+    const overtimePay = overtimeHours * overtimeRate;
+
+    const taxDeduction = existing?.tax_deduction ?? 0;
+    const providentFund = existing?.provident_fund ?? 0;
+    const otherDeductions = existing?.other_deductions ?? 0;
+
+    const grossPay = baseSalary + allowances + bonusAmount + overtimePay;
+    const totalDeductions = taxDeduction + providentFund + otherDeductions;
+    const netPay = grossPay - totalDeductions;
+
+    return {
+      employee_id: employee.id,
+      employee_code: employee.employee_code,
+      employee_name: employee.name,
+      pay_period_start: existing?.pay_period_start ?? payPeriod.start,
+      pay_period_end: existing?.pay_period_end ?? payPeriod.end,
+      base_salary_original: baseSalaryOriginal,
+      salary_adjustment: salaryAdjustment,
+      base_salary: baseSalary,
+      allowances,
+      bonus_amount: bonusAmount,
+      overtime_hours: overtimeHours,
+      overtime_rate: overtimeRate,
+      overtime_pay: overtimePay,
+      gross_pay: grossPay,
+      tax_deduction: taxDeduction,
+      provident_fund: providentFund,
+      other_deductions: otherDeductions,
+      total_deductions: totalDeductions,
+      net_pay: netPay,
+      status: 'calculated'
+    };
+  };
+
+  const updateCalculation = (employeeId: string, updates: Partial<PayrollCalculation>) => {
+    setCalculations((prev) => {
+      const employee = employees.find((e) => e.id === employeeId);
+      if (!employee) return prev;
+      const existing = prev.find((c) => c.employee_id === employeeId);
+      if (!existing) return prev;
+
+      const merged: PayrollCalculation = { ...existing, ...updates };
+      const next = buildCalculation(employee, merged);
+      return prev.map((c) => (c.employee_id === employeeId ? next : c));
+    });
+  };
 
   const calculatePayroll = async () => {
     if (selectedEmployees.length === 0) {
@@ -564,124 +601,10 @@ export default function PayrollCalculatePage() {
 
     setCalculating(true);
 
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
     const newCalculations: PayrollCalculation[] = selectedEmployees.map(employeeId => {
       const employee = employees.find(emp => emp.id === employeeId)!;
-      
-      // Mock overtime data (in real app, this would come from time tracking)
-      const overtimeHours = Math.random() * 10; // Random overtime hours
-      const overtimeRate = employee.hourly_rate * 1.5; // 1.5x overtime rate
-      const overtimePayAmount = overtimeHours * overtimeRate;
-
-      // Mock bonuses
-      const bonuses: PayrollBonus[] = [
-        {
-          id: 'bonus1',
-          type: 'Performance',
-          description: 'Monthly Performance Bonus',
-          amount: Math.random() > 0.5 ? 1000 : 0,
-          is_taxable: true
-        },
-        {
-          id: 'bonus2',
-          type: 'Commission',
-          description: 'Sales Commission',
-          amount: employee.department === 'Sales' ? Math.random() * 2000 : 0,
-          is_taxable: true
-        }
-      ].filter(bonus => bonus.amount > 0);
-
-      // Mock deductions
-      const deductions: PayrollDeduction[] = [
-        {
-          id: 'ded1',
-          type: 'Health Insurance',
-          description: 'Monthly Health Insurance Premium',
-          amount: 350,
-          is_pre_tax: true
-        },
-        {
-          id: 'ded2',
-          type: 'Retirement',
-          description: '401(k) Contribution',
-          amount: employee.base_salary * 0.05 / 12, // 5% of annual salary
-          is_pre_tax: true
-        },
-        {
-          id: 'ded3',
-          type: 'Parking',
-          description: 'Monthly Parking Fee',
-          amount: employee.employment_type === 'full-time' ? 100 : 0,
-          is_pre_tax: false
-        }
-      ].filter(deduction => deduction.amount > 0);
-
-      // Calculate gross pay
-      const monthlySalary = employee.base_salary / 12;
-      const bonusTotal = bonuses.reduce((sum, bonus) => sum + bonus.amount, 0);
-      const grossPay = monthlySalary + overtimePayAmount + bonusTotal;
-
-      // Calculate pre-tax deductions
-      const preTaxDeductions = deductions
-        .filter(ded => ded.is_pre_tax)
-        .reduce((sum, ded) => sum + ded.amount, 0);
-
-      // Calculate taxable income
-      const taxableIncome = grossPay - preTaxDeductions;
-
-      // Calculate tax deductions (simplified tax calculation)
-      const taxDeductions: TaxDeduction[] = [
-        {
-          type: 'Federal Income Tax',
-          rate: 0.22, // 22% federal tax rate
-          amount: taxableIncome * 0.22
-        },
-        {
-          type: 'State Income Tax',
-          rate: 0.05, // 5% state tax rate
-          amount: taxableIncome * 0.05
-        },
-        {
-          type: 'Social Security',
-          rate: 0.062, // 6.2% Social Security
-          amount: Math.min(taxableIncome * 0.062, 9932.40) // 2024 SS wage base limit
-        },
-        {
-          type: 'Medicare',
-          rate: 0.0145, // 1.45% Medicare
-          amount: taxableIncome * 0.0145
-        }
-      ];
-
-      // Calculate post-tax deductions
-      const postTaxDeductions = deductions
-        .filter(ded => !ded.is_pre_tax)
-        .reduce((sum, ded) => sum + ded.amount, 0);
-
-      // Calculate total tax amount
-      const totalTaxes = taxDeductions.reduce((sum, tax) => sum + tax.amount, 0);
-
-      // Calculate net pay
-      const netPay = grossPay - preTaxDeductions - totalTaxes - postTaxDeductions;
-
-      return {
-        employee_id: employee.id,
-        employee_name: employee.name,
-        pay_period_start: payPeriod.start,
-        pay_period_end: payPeriod.end,
-        base_salary: monthlySalary,
-        overtime_hours: overtimeHours,
-        overtime_rate: overtimeRate,
-        overtime_pay: overtimePayAmount,
-        bonuses,
-        deductions,
-        gross_pay: grossPay,
-        tax_deductions: taxDeductions,
-        net_pay: netPay,
-        status: 'calculated' as const
-      };
+      const existing = calculations.find((c) => c.employee_id === employeeId);
+      return buildCalculation(employee, existing);
     });
 
     setCalculations(newCalculations);
@@ -706,16 +629,146 @@ export default function PayrollCalculatePage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-PK', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'PKR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
     }).format(amount);
   };
 
   const savePayrollCalculations = async () => {
-    // In a real app, this would save to the database
-    console.log('Saving payroll calculations:', calculations);
-    alert('Payroll calculations saved successfully!');
+    if (!user) return;
+    if (calculations.length === 0) return;
+
+    try {
+      setSaving(true);
+      setError(null);
+      const supabase = createSupabaseClient();
+
+      if (!supabase) {
+        throw new Error('Supabase is not configured properly. Please check your environment variables.');
+      }
+
+      for (const calc of calculations) {
+        const { data: payrollRow, error: insertError } = await supabase
+          .from('payroll')
+          .insert({
+            user_id: user.id,
+            employee_id: calc.employee_id,
+            pay_period_start: calc.pay_period_start,
+            pay_period_end: calc.pay_period_end,
+            pay_date: calc.pay_period_end,
+            base_salary: calc.base_salary,
+            overtime_amount: calc.overtime_pay,
+            bonus_amount: calc.bonus_amount,
+            allowances: calc.allowances,
+            gross_salary: calc.gross_pay,
+            tax_deduction: calc.tax_deduction,
+            provident_fund: calc.provident_fund,
+            other_deductions: calc.other_deductions,
+            total_deductions: calc.total_deductions,
+            net_salary: calc.net_pay,
+            currency: 'PKR',
+            status: 'draft',
+            payment_method: 'bank_transfer',
+            updated_at: new Date().toISOString()
+          })
+          .select('id')
+          .single();
+
+        if (insertError) throw insertError;
+
+        const payrollId = payrollRow?.id as string | undefined;
+        if (!payrollId) continue;
+
+        const payrollItems = [
+          ...(calc.allowances > 0
+            ? [
+                {
+                  payroll_id: payrollId,
+                  item_type: 'earning' as const,
+                  item_name: 'Allowances',
+                  amount: calc.allowances,
+                  is_taxable: true
+                }
+              ]
+            : []),
+          ...(calc.bonus_amount > 0
+            ? [
+                {
+                  payroll_id: payrollId,
+                  item_type: 'earning' as const,
+                  item_name: 'Bonus',
+                  amount: calc.bonus_amount,
+                  is_taxable: true
+                }
+              ]
+            : []),
+          ...(calc.overtime_pay > 0
+            ? [
+                {
+                  payroll_id: payrollId,
+                  item_type: 'earning' as const,
+                  item_name: 'Overtime',
+                  amount: calc.overtime_pay,
+                  is_taxable: true
+                }
+              ]
+            : []),
+          ...(calc.tax_deduction > 0
+            ? [
+                {
+                  payroll_id: payrollId,
+                  item_type: 'deduction' as const,
+                  item_name: 'Tax Deduction',
+                  amount: calc.tax_deduction,
+                  is_taxable: false
+                }
+              ]
+            : []),
+          ...(calc.provident_fund > 0
+            ? [
+                {
+                  payroll_id: payrollId,
+                  item_type: 'deduction' as const,
+                  item_name: 'Provident Fund',
+                  amount: calc.provident_fund,
+                  is_taxable: false
+                }
+              ]
+            : []),
+          ...(calc.other_deductions > 0
+            ? [
+                {
+                  payroll_id: payrollId,
+                  item_type: 'deduction' as const,
+                  item_name: 'Other Deductions',
+                  amount: calc.other_deductions,
+                  is_taxable: false
+                }
+              ]
+            : [])
+        ];
+
+        if (payrollItems.length > 0) {
+          const { error: itemsError } = await supabase
+            .from('payroll_items')
+            .insert(payrollItems);
+          if (itemsError) throw itemsError;
+        }
+      }
+
+      setShowPreview(false);
+      setCalculations([]);
+      setSelectedEmployees([]);
+      router.push('/payroll');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to save payroll';
+      setError(message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -732,6 +785,11 @@ export default function PayrollCalculatePage() {
   return (
     <DashboardLayout>
       <Container>
+        {error && (
+          <div style={{ marginBottom: '16px', color: '#ef4444' }}>
+            {error}
+          </div>
+        )}
         {/* Header */}
         <Header>
           <Title>
@@ -794,7 +852,7 @@ export default function PayrollCalculatePage() {
                   >
                     <EmployeeName>{employee.name}</EmployeeName>
                     <EmployeeDetails>{employee.position} • {employee.department}</EmployeeDetails>
-                    <EmployeeSalary>{formatCurrency(employee.base_salary)}/year</EmployeeSalary>
+                    <EmployeeSalary>{formatCurrency(employee.base_salary)}</EmployeeSalary>
                   </EmployeeCard>
                 ))}
               </EmployeeGrid>
@@ -837,9 +895,9 @@ export default function PayrollCalculatePage() {
                   <Button variant="secondary" onClick={() => setShowPreview(false)}>
                     Back to Selection
                   </Button>
-                  <Button onClick={savePayrollCalculations}>
+                  <Button onClick={savePayrollCalculations} disabled={saving}>
                     <Save size={16} />
-                    Save Calculations
+                    {saving ? 'Saving...' : 'Save Calculations'}
                   </Button>
                 </ButtonGroup>
               </CardHeader>
@@ -866,11 +924,9 @@ export default function PayrollCalculatePage() {
                   </SummaryIcon>
                 </SummaryHeader>
                 <SummaryValue>
-                  {formatCurrency(calculations.reduce((sum, calc) => 
-                    sum + calc.bonuses.reduce((bonusSum, bonus) => bonusSum + bonus.amount, 0), 0
-                  ))}
+                  {formatCurrency(calculations.reduce((sum, calc) => sum + calc.allowances + calc.bonus_amount + calc.overtime_pay, 0))}
                 </SummaryValue>
-                <SummaryLabel>Total Bonuses</SummaryLabel>
+                <SummaryLabel>Total Extra Earnings</SummaryLabel>
               </SummaryCard>
 
               <SummaryCard>
@@ -880,10 +936,7 @@ export default function PayrollCalculatePage() {
                   </SummaryIcon>
                 </SummaryHeader>
                 <SummaryValue>
-                  {formatCurrency(calculations.reduce((sum, calc) => 
-                    sum + calc.deductions.reduce((dedSum, ded) => dedSum + ded.amount, 0) +
-                    calc.tax_deductions.reduce((taxSum, tax) => taxSum + tax.amount, 0), 0
-                  ))}
+                  {formatCurrency(calculations.reduce((sum, calc) => sum + calc.total_deductions, 0))}
                 </SummaryValue>
                 <SummaryLabel>Total Deductions</SummaryLabel>
               </SummaryCard>
@@ -907,16 +960,87 @@ export default function PayrollCalculatePage() {
                 <ResultCard key={calculation.employee_id}>
                   <ResultHeader>
                     <ResultTitle>
-                      {calculation.employee_name} ({calculation.employee_id})
+                      {calculation.employee_name} ({calculation.employee_code})
                     </ResultTitle>
                     <ResultAmount>{formatCurrency(calculation.net_pay)}</ResultAmount>
                   </ResultHeader>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginTop: '12px', marginBottom: '12px' }}>
+                    <FormGroup>
+                      <Label>Salary Adjustment</Label>
+                      <Input
+                        type="number"
+                        value={calculation.salary_adjustment}
+                        onChange={(e) => updateCalculation(calculation.employee_id, { salary_adjustment: Number(e.target.value || 0) })}
+                      />
+                    </FormGroup>
+                    <FormGroup>
+                      <Label>Allowances</Label>
+                      <Input
+                        type="number"
+                        value={calculation.allowances}
+                        onChange={(e) => updateCalculation(calculation.employee_id, { allowances: Number(e.target.value || 0) })}
+                      />
+                    </FormGroup>
+                    <FormGroup>
+                      <Label>Bonus</Label>
+                      <Input
+                        type="number"
+                        value={calculation.bonus_amount}
+                        onChange={(e) => updateCalculation(calculation.employee_id, { bonus_amount: Number(e.target.value || 0) })}
+                      />
+                    </FormGroup>
+                    <FormGroup>
+                      <Label>Overtime Hours</Label>
+                      <Input
+                        type="number"
+                        value={calculation.overtime_hours}
+                        onChange={(e) => updateCalculation(calculation.employee_id, { overtime_hours: Number(e.target.value || 0) })}
+                      />
+                    </FormGroup>
+                    <FormGroup>
+                      <Label>Tax Deduction</Label>
+                      <Input
+                        type="number"
+                        value={calculation.tax_deduction}
+                        onChange={(e) => updateCalculation(calculation.employee_id, { tax_deduction: Number(e.target.value || 0) })}
+                      />
+                    </FormGroup>
+                    <FormGroup>
+                      <Label>Provident Fund</Label>
+                      <Input
+                        type="number"
+                        value={calculation.provident_fund}
+                        onChange={(e) => updateCalculation(calculation.employee_id, { provident_fund: Number(e.target.value || 0) })}
+                      />
+                    </FormGroup>
+                    <FormGroup>
+                      <Label>Other Deductions</Label>
+                      <Input
+                        type="number"
+                        value={calculation.other_deductions}
+                        onChange={(e) => updateCalculation(calculation.employee_id, { other_deductions: Number(e.target.value || 0) })}
+                      />
+                    </FormGroup>
+                  </div>
                   
                   <ResultDetails>
                     <ResultRow>
-                      <ResultLabel>Base Salary</ResultLabel>
+                      <ResultLabel>Salary</ResultLabel>
                       <ResultValue>{formatCurrency(calculation.base_salary)}</ResultValue>
                     </ResultRow>
+                    {calculation.allowances > 0 && (
+                      <ResultRow>
+                        <ResultLabel>Allowances</ResultLabel>
+                        <ResultValue>{formatCurrency(calculation.allowances)}</ResultValue>
+                      </ResultRow>
+                    )}
+                    {calculation.bonus_amount > 0 && (
+                      <ResultRow>
+                        <ResultLabel>Bonus</ResultLabel>
+                        <ResultValue>{formatCurrency(calculation.bonus_amount)}</ResultValue>
+                      </ResultRow>
+                    )}
                     {calculation.overtime_pay > 0 && (
                       <ResultRow>
                         <ResultLabel>
@@ -925,33 +1049,33 @@ export default function PayrollCalculatePage() {
                         <ResultValue>{formatCurrency(calculation.overtime_pay)}</ResultValue>
                       </ResultRow>
                     )}
-                    {calculation.bonuses.map((bonus) => (
-                      <ResultRow key={bonus.id}>
-                        <ResultLabel>{bonus.description}</ResultLabel>
-                        <ResultValue>{formatCurrency(bonus.amount)}</ResultValue>
-                      </ResultRow>
-                    ))}
                     <ResultRow style={{ fontWeight: '600', color: 'var(--primary-400)' }}>
                       <ResultLabel>Gross Pay</ResultLabel>
                       <ResultValue>{formatCurrency(calculation.gross_pay)}</ResultValue>
                     </ResultRow>
                     
-                    {calculation.deductions.map((deduction) => (
-                      <ResultRow key={deduction.id}>
-                        <ResultLabel>
-                          {deduction.description} {deduction.is_pre_tax && '(Pre-tax)'}
-                        </ResultLabel>
-                        <ResultValue>-{formatCurrency(deduction.amount)}</ResultValue>
+                    {calculation.tax_deduction > 0 && (
+                      <ResultRow>
+                        <ResultLabel>Tax Deduction</ResultLabel>
+                        <ResultValue>-{formatCurrency(calculation.tax_deduction)}</ResultValue>
                       </ResultRow>
-                    ))}
-                    {calculation.tax_deductions.map((tax, index) => (
-                      <ResultRow key={index}>
-                        <ResultLabel>
-                          {tax.type} ({(tax.rate * 100).toFixed(1)}%)
-                        </ResultLabel>
-                        <ResultValue>-{formatCurrency(tax.amount)}</ResultValue>
+                    )}
+                    {calculation.provident_fund > 0 && (
+                      <ResultRow>
+                        <ResultLabel>Provident Fund</ResultLabel>
+                        <ResultValue>-{formatCurrency(calculation.provident_fund)}</ResultValue>
                       </ResultRow>
-                    ))}
+                    )}
+                    {calculation.other_deductions > 0 && (
+                      <ResultRow>
+                        <ResultLabel>Other Deductions</ResultLabel>
+                        <ResultValue>-{formatCurrency(calculation.other_deductions)}</ResultValue>
+                      </ResultRow>
+                    )}
+                    <ResultRow style={{ fontWeight: '600' }}>
+                      <ResultLabel>Total Deductions</ResultLabel>
+                      <ResultValue>-{formatCurrency(calculation.total_deductions)}</ResultValue>
+                    </ResultRow>
                   </ResultDetails>
                 </ResultCard>
               ))}

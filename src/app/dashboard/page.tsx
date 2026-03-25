@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -33,9 +33,11 @@ interface DashboardStats {
   totalRevenue: number;
   totalExpenses: number;
   currentBalance: number;
+  pendingPayments: number;
   activeProjects: number;
   totalClients: number;
   pendingInvoices: number;
+  expenseBreakdown?: Array<{ category: string; amount: number; color: string }>;
   recentTransactions: Array<{
     id: string;
     type: string;
@@ -381,18 +383,117 @@ const LoadingContainer = styled.div`
   }
 `;
 
+const HeaderRow = styled.div`
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+`;
+
+const HeaderControls = styled.div`
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+`;
+
+const FilterSelect = styled.select`
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  font-size: 14px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 40px;
+
+  &:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.10);
+  }
+
+  option {
+    color: #111827;
+  }
+`;
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [chartData, setChartData] = useState<Array<{ month: string; revenue: number; expenses: number }>>([]);
+  const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | 'this-week' | 'this-month' | 'last-month' | 'this-year' | 'all-time'>('this-month');
+
+  const dateRange = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const startOfWeek = (d: Date) => {
+      const day = (d.getDay() + 6) % 7;
+      const start = new Date(d);
+      start.setDate(d.getDate() - day);
+      start.setHours(0, 0, 0, 0);
+      return start;
+    };
+
+    switch (dateFilter) {
+      case 'today':
+        return { start: todayStart, end: todayEnd };
+      case 'yesterday': {
+        const start = new Date(todayStart);
+        start.setDate(start.getDate() - 1);
+        const end = new Date(todayEnd);
+        end.setDate(end.getDate() - 1);
+        return { start, end };
+      }
+      case 'this-week': {
+        const start = startOfWeek(todayStart);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        return { start, end };
+      }
+      case 'this-month':
+        return {
+          start: new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0),
+          end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+        };
+      case 'last-month':
+        return {
+          start: new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0),
+          end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+        };
+      case 'this-year':
+        return {
+          start: new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0),
+          end: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+        };
+      case 'all-time':
+      default:
+        return null;
+    }
+  }, [dateFilter]);
 
   useEffect(() => {
     if (user) {
       fetchDashboardData();
     }
-  }, [user]);
+  }, [user, dateRange]);
 
   const fetchDashboardData = async () => {
     try {
@@ -414,6 +515,35 @@ export default function DashboardPage() {
         return;
       }
       
+      const startISO = dateRange?.start.toISOString();
+      const endISO = dateRange?.end.toISOString();
+      const startDate = dateRange ? dateRange.start.toISOString().slice(0, 10) : null;
+      const endDate = dateRange ? dateRange.end.toISOString().slice(0, 10) : null;
+
+      const paymentsForRevenueQuery = (() => {
+        let q = supabase.from('payments').select('*').eq('user_id', user?.id).order('payment_date', { ascending: false });
+        if (startDate && endDate) q = q.gte('payment_date', startDate).lte('payment_date', endDate);
+        return q;
+      })();
+
+      const expensesQuery = (() => {
+        let q = supabase.from('expenses').select('*').eq('user_id', user?.id).order('date', { ascending: false });
+        if (startDate && endDate) q = q.gte('date', startDate).lte('date', endDate);
+        return q;
+      })();
+
+      const invoicesQuery = (() => {
+        let q = supabase.from('invoices').select('*').eq('user_id', user!.id);
+        if (startISO && endISO) q = q.gte('created_at', startISO).lte('created_at', endISO);
+        return q;
+      })();
+
+      const paymentsToDateQuery = (() => {
+        let q = supabase.from('payments').select('amount, invoice_id, payment_date').eq('user_id', user?.id);
+        if (endDate) q = q.lte('payment_date', endDate);
+        return q;
+      })();
+
       // Fetch all data in parallel
       const [
         { data: invoices, error: invoicesError },
@@ -421,17 +551,19 @@ export default function DashboardPage() {
         { data: projects, error: projectsError },
         { data: clients, error: clientsError },
         { data: payments, error: paymentsError },
+        { data: paymentsToDate, error: paymentsToDateError },
         { data: budgets, error: budgetsError },
         { data: budgetItems, error: budgetItemsError },
         { data: savingsGoals, error: savingsGoalsError },
         { data: savingsTransactions, error: savingsTransactionsError },
         { data: budgetAlerts, error: budgetAlertsError }
       ] = await Promise.all([
-        supabase.from('invoices').select('*').eq('user_id', user!.id),
-        supabase.from('expenses').select('*').eq('user_id', user?.id),
+        invoicesQuery,
+        expensesQuery,
         supabase.from('projects').select('*').eq('user_id', user?.id),
         supabase.from('clients').select('*').eq('user_id', user?.id),
-        supabase.from('payments').select('*').eq('user_id', user?.id),
+        paymentsForRevenueQuery,
+        paymentsToDateQuery,
         supabase.from('budgets').select('*').eq('user_id', user?.id),
         supabase.from('budget_items').select('*').eq('user_id', user?.id),
         supabase.from('savings_goals').select('*').eq('user_id', user?.id),
@@ -444,6 +576,8 @@ export default function DashboardPage() {
       if (projectsError) console.error('Error fetching projects:', projectsError);
       if (invoicesError) console.error('Error fetching invoices:', invoicesError);
       if (expensesError) console.error('Error fetching expenses:', expensesError);
+      if (paymentsError) console.error('Error fetching payments:', paymentsError);
+      if (paymentsToDateError) console.error('Error fetching paymentsToDate:', paymentsToDateError);
 
       // Log data counts
       console.log('Dashboard data fetched:');
@@ -452,13 +586,50 @@ export default function DashboardPage() {
       console.log('- Invoices:', invoices?.length || 0);
       console.log('- Expenses:', expenses?.length || 0);
 
-      // Calculate stats
-      const totalRevenue = invoices?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
+      const totalRevenue = payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
       const totalExpenses = expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
       const currentBalance = totalRevenue - totalExpenses;
       const activeProjects = projects?.filter(p => p.status === 'active').length || 0;
       const totalClients = clients?.length || 0;
-      const pendingInvoices = invoices?.filter(inv => inv.status === 'sent').length || 0;
+      const pendingInvoiceRows = (invoices || []).filter((inv) => ['sent', 'overdue'].includes(inv.status));
+      const pendingInvoices = pendingInvoiceRows.length;
+
+      const pendingInvoiceIds = pendingInvoiceRows.map((inv) => inv.id).filter(Boolean);
+      const invoiceTotalsById = pendingInvoiceRows.reduce((acc: Record<string, number>, inv) => {
+        acc[inv.id] = inv.total_amount || inv.amount || 0;
+        return acc;
+      }, {});
+      const paymentsByInvoice = (paymentsToDate || []).reduce((acc: Record<string, number>, p: { invoice_id?: string; amount?: number }) => {
+        if (!p.invoice_id) return acc;
+        acc[p.invoice_id] = (acc[p.invoice_id] || 0) + (p.amount || 0);
+        return acc;
+      }, {});
+      const pendingPayments = pendingInvoiceIds.reduce((sum: number, invoiceId: string) => {
+        const total = invoiceTotalsById[invoiceId] || 0;
+        const paid = paymentsByInvoice[invoiceId] || 0;
+        const remaining = Math.max(0, total - paid);
+        return sum + remaining;
+      }, 0);
+
+      const expenseBreakdown = (() => {
+        const palette = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16'];
+        const byCategory = (expenses || []).reduce((acc: Record<string, number>, exp) => {
+          const key = exp.category || 'Other';
+          acc[key] = (acc[key] || 0) + (exp.amount || 0);
+          return acc;
+        }, {});
+        const items = Object.entries(byCategory)
+          .map(([category, amount]) => ({ category, amount }))
+          .sort((a, b) => b.amount - a.amount);
+        const top = items.slice(0, 6);
+        const other = items.slice(6).reduce((sum, i) => sum + i.amount, 0);
+        const final = other > 0 ? [...top, { category: 'Other', amount: other }] : top;
+        return final.map((i, idx) => ({
+          category: i.category,
+          amount: i.amount,
+          color: palette[idx % palette.length]
+        }));
+      })();
 
       // Budget calculations
       const totalBudget = budgets?.reduce((sum, budget) => sum + (budget.amount || 0), 0) || 0;
@@ -476,17 +647,18 @@ export default function DashboardPage() {
 
       // Recent transactions (last 5)
       const recentTransactions = [
-        ...(invoices?.slice(-3).map(inv => ({
-          type: 'invoice',
-          description: `Invoice #${inv.invoice_number}`,
-          amount: inv.total_amount,
-          date: inv.created_at
+        ...(payments?.slice(0, 3).map(p => ({
+          type: 'payment',
+          description: p.description || 'Payment received',
+          amount: p.amount,
+          date: p.payment_date || p.created_at
         })) || []),
-        ...(expenses?.slice(-2).map(exp => ({
+        ...(expenses?.slice(0, 2).map(exp => ({
           type: 'expense',
           description: exp.description,
           amount: exp.amount,
-          date: exp.created_at
+          date: exp.date || exp.created_at,
+          category: exp.category || 'Other'
         })) || [])
       ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
 
@@ -494,16 +666,18 @@ export default function DashboardPage() {
         totalRevenue,
         totalExpenses,
         currentBalance,
+        pendingPayments,
         activeProjects,
         totalClients,
         pendingInvoices,
+        expenseBreakdown,
         recentTransactions: recentTransactions.map((tx, idx) => ({
           id: `${tx.type}-${idx}`,
           type: tx.type,
           description: tx.description,
           amount: tx.amount,
           date: tx.date,
-          category: tx.type === 'expense' ? 'Expense' : 'Invoice'
+          category: tx.type === 'expense' ? (tx as { category?: string }).category : 'Payment'
         })),
         budgetData: {
           totalBudget,
@@ -521,38 +695,105 @@ export default function DashboardPage() {
         }
       });
 
-      // Compute monthly chart data for the last 7 months based on actual invoices and expenses
-      const now = new Date();
-      const months: Date[] = [];
-      for (let i = 6; i >= 0; i--) {
-        months.push(new Date(now.getFullYear(), now.getMonth() - i, 1));
-      }
+      const buildChartSeries = () => {
+        const dayMs = 24 * 60 * 60 * 1000;
+        const range = dateRange;
 
-      const monthlyData = months.map((d) => {
-        const monthLabel = d.toLocaleString('default', { month: 'short' });
+        const toDayKey = (d: Date) => d.toISOString().slice(0, 10);
+        const toMonthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
-        const revenueSum = (invoices || [])
-          .filter(inv => {
-            const dt = new Date(inv.created_at);
-            const sameMonth = dt.getFullYear() === d.getFullYear() && dt.getMonth() === d.getMonth();
-            return inv.status === 'paid' && sameMonth;
-          })
-          .reduce((sum, inv) => {
-            const amt = typeof inv.total_amount === 'number' ? inv.total_amount : (typeof inv.amount === 'number' ? inv.amount : 0);
-            return sum + (amt || 0);
-          }, 0);
+        if (range) {
+          const days = Math.floor((range.end.getTime() - range.start.getTime()) / dayMs) + 1;
 
-        const expensesSum = (expenses || [])
-          .filter(exp => {
-            const dt = new Date(exp.created_at);
-            return dt.getFullYear() === d.getFullYear() && dt.getMonth() === d.getMonth();
-          })
-          .reduce((sum, exp) => sum + (typeof exp.amount === 'number' ? exp.amount : 0), 0);
+          if (days <= 45) {
+            const buckets: string[] = [];
+            for (let i = 0; i < days; i++) {
+              const d = new Date(range.start.getTime() + i * dayMs);
+              buckets.push(toDayKey(d));
+            }
 
-        return { month: monthLabel, revenue: revenueSum, expenses: expensesSum };
-      });
+            const revenueByDay = (payments || []).reduce((acc: Record<string, number>, p: { payment_date?: string; amount?: number }) => {
+              if (!p.payment_date) return acc;
+              acc[p.payment_date] = (acc[p.payment_date] || 0) + (p.amount || 0);
+              return acc;
+            }, {});
 
-      setChartData(monthlyData);
+            const expenseByDay = (expenses || []).reduce((acc: Record<string, number>, e: { date?: string; amount?: number }) => {
+              if (!e.date) return acc;
+              acc[e.date] = (acc[e.date] || 0) + (e.amount || 0);
+              return acc;
+            }, {});
+
+            return buckets.map((key) => ({
+              month: key.slice(5),
+              revenue: revenueByDay[key] || 0,
+              expenses: expenseByDay[key] || 0
+            }));
+          }
+
+          const months: string[] = [];
+          const startMonth = new Date(range.start.getFullYear(), range.start.getMonth(), 1);
+          const endMonth = new Date(range.end.getFullYear(), range.end.getMonth(), 1);
+          for (let d = new Date(startMonth); d <= endMonth; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+            months.push(toMonthKey(d));
+          }
+
+          const revenueByMonth = (payments || []).reduce((acc: Record<string, number>, p: { payment_date?: string; amount?: number }) => {
+            if (!p.payment_date) return acc;
+            const dt = new Date(p.payment_date);
+            const key = toMonthKey(dt);
+            acc[key] = (acc[key] || 0) + (p.amount || 0);
+            return acc;
+          }, {});
+
+          const expenseByMonth = (expenses || []).reduce((acc: Record<string, number>, e: { date?: string; amount?: number }) => {
+            if (!e.date) return acc;
+            const dt = new Date(e.date);
+            const key = toMonthKey(dt);
+            acc[key] = (acc[key] || 0) + (e.amount || 0);
+            return acc;
+          }, {});
+
+          return months.map((key) => ({
+            month: new Date(`${key}-01`).toLocaleString('default', { month: 'short' }),
+            revenue: revenueByMonth[key] || 0,
+            expenses: expenseByMonth[key] || 0
+          }));
+        }
+
+        const now = new Date();
+        const months: Date[] = [];
+        for (let i = 6; i >= 0; i--) {
+          months.push(new Date(now.getFullYear(), now.getMonth() - i, 1));
+        }
+
+        const revenueByMonth = (paymentsToDate || []).reduce((acc: Record<string, number>, p: { payment_date?: string; amount?: number }) => {
+          if (!p.payment_date) return acc;
+          const dt = new Date(p.payment_date);
+          const key = toMonthKey(dt);
+          acc[key] = (acc[key] || 0) + (p.amount || 0);
+          return acc;
+        }, {});
+
+        const expenseByMonth = (expenses || []).reduce((acc: Record<string, number>, e: { date?: string; amount?: number }) => {
+          if (!e.date) return acc;
+          const dt = new Date(e.date);
+          const key = toMonthKey(dt);
+          acc[key] = (acc[key] || 0) + (e.amount || 0);
+          return acc;
+        }, {});
+
+        return months.map((d) => {
+          const key = toMonthKey(d);
+          return {
+            month: d.toLocaleString('default', { month: 'short' }),
+            revenue: revenueByMonth[key] || 0,
+            expenses: expenseByMonth[key] || 0
+          };
+        });
+      };
+
+      setChartData(buildChartSeries());
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -574,8 +815,23 @@ export default function DashboardPage() {
     <DashboardLayout>
       <Container>
         <Header>
-          <h1>Dashboard</h1>
-          <p>Welcome back! Here&apos;s what&apos;s happening with your business today.</p>
+          <HeaderRow>
+            <div>
+              <h1>Dashboard</h1>
+              <p>Welcome back! Here&apos;s what&apos;s happening with your business today.</p>
+            </div>
+            <HeaderControls>
+              <FilterSelect value={dateFilter} onChange={(e) => setDateFilter(e.target.value as typeof dateFilter)}>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="this-week">This Week</option>
+                <option value="this-month">This Month</option>
+                <option value="last-month">Last Month</option>
+                <option value="this-year">This Year</option>
+                <option value="all-time">All Time</option>
+              </FilterSelect>
+            </HeaderControls>
+          </HeaderRow>
         </Header>
 
         <StatsGrid>
@@ -589,7 +845,7 @@ export default function DashboardPage() {
               <h3>{formatPKR(stats?.totalRevenue || 0)}</h3>
               <p>
                 <TrendingUp size={16} />
-                Total Revenue
+                Completed Payments
               </p>
             </StatValue>
           </StatCard>
@@ -620,7 +876,22 @@ export default function DashboardPage() {
               <h3>{formatPKR(stats?.currentBalance || 0)}</h3>
               <p>
                 <DollarSign size={16} />
-                Current Balance
+                Current Balance (Paid)
+              </p>
+            </StatValue>
+          </StatCard>
+
+          <StatCard variant="glass" color="var(--warning-500)">
+            <StatHeader>
+              <StatIcon $color="var(--warning-100)">
+                <CreditCard size={24} />
+              </StatIcon>
+            </StatHeader>
+            <StatValue>
+              <h3>{formatPKR(stats?.pendingPayments || 0)}</h3>
+              <p>
+                <CreditCard size={16} />
+                Pending Payments
               </p>
             </StatValue>
           </StatCard>
@@ -732,7 +1003,7 @@ export default function DashboardPage() {
               <p>Categories distribution</p>
             </Card.Header>
             <Card.Content>
-              <ExpenseBreakdownChart />
+              <ExpenseBreakdownChart data={stats?.expenseBreakdown?.length ? stats.expenseBreakdown : []} />
             </Card.Content>
           </Card>
         </ChartsGrid>
@@ -747,7 +1018,7 @@ export default function DashboardPage() {
               {stats?.recentTransactions.slice(0, 5).map((transaction, index) => (
                 <ActivityItem key={index}>
                   <ActivityIcon $type={transaction.type}>
-                    {transaction.type === 'invoice' ? <FileText size={20} /> : <CreditCard size={20} />}
+                      {transaction.type === 'payment' ? <CreditCard size={20} /> : <TrendingDown size={20} />}
                   </ActivityIcon>
                   <ActivityContent>
                     <h4>{transaction.description}</h4>

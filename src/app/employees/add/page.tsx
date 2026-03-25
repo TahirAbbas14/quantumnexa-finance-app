@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, User, Mail, Phone, MapPin, Calendar, Briefcase, DollarSign, Building } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { createSupabaseClient } from '@/lib/supabase';
 
 interface EmployeeFormData {
   employee_id: string;
@@ -30,6 +32,7 @@ interface EmployeeFormData {
 
 export default function AddEmployeePage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<EmployeeFormData>({
     employee_id: '',
@@ -145,13 +148,57 @@ export default function AddEmployeePage() {
     setLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Here you would typically make an API call to save the employee
-      console.log('Employee data to save:', formData);
-      
-      // Redirect to employees list
+      const supabase = createSupabaseClient();
+      if (!supabase) {
+        alert('Supabase is not configured properly. Please check your environment variables.');
+        setLoading(false);
+        return;
+      }
+
+      if (!user) {
+        alert('Please log in to add employees.');
+        router.push('/login');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('employees')
+        .insert([
+          {
+            user_id: user.id,
+            employee_id: formData.employee_id,
+            first_name: formData.first_name,
+            last_name: formData.last_name,
+            email: formData.email,
+            phone: formData.phone || null,
+            address: formData.address || null,
+            date_of_birth: formData.date_of_birth || null,
+            hire_date: formData.hire_date,
+            termination_date: null,
+            department: formData.department || null,
+            position: formData.position,
+            employment_type: formData.employment_type,
+            status: formData.status,
+            base_salary: Number(formData.base_salary),
+            hourly_rate: formData.hourly_rate ? Number(formData.hourly_rate) : null,
+            currency: formData.currency,
+            bank_account_number: formData.bank_account_number || null,
+            bank_name: formData.bank_name || null,
+            tax_id: formData.tax_id || null,
+            emergency_contact_name: formData.emergency_contact_name || null,
+            emergency_contact_phone: formData.emergency_contact_phone || null,
+          },
+        ]);
+
+      if (error) {
+        console.error('Error saving employee:', error);
+        const message = typeof error.message === 'string' && error.message.toLowerCase().includes('duplicate')
+          ? 'Employee ID or email already exists.'
+          : error.message || 'Error saving employee.';
+        alert(message);
+        return;
+      }
+
       router.push('/employees');
     } catch (error) {
       console.error('Error saving employee:', error);
@@ -480,8 +527,6 @@ export default function AddEmployeePage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="PKR">PKR</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
                 </select>
               </div>
             </div>
