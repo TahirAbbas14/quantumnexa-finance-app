@@ -454,6 +454,35 @@ const FilterSelect = styled.select`
   }
 `;
 
+const DateInput = styled.input`
+  padding: 12px 16px;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 12px;
+  background: rgba(20, 20, 20, 0.5);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 160px;
+  transition: all 0.3s ease;
+
+  &:focus {
+    outline: none;
+    border-color: rgba(220, 38, 38, 0.6);
+    background: rgba(20, 20, 20, 0.8);
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  }
+
+  &::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.8;
+  }
+
+  @media (max-width: 768px) {
+    min-width: auto;
+    width: 100%;
+  }
+`;
+
 const TableContainer = styled.div`
   background: linear-gradient(135deg, rgba(20, 20, 20, 0.9) 0%, rgba(30, 30, 30, 0.9) 100%);
   backdrop-filter: blur(20px);
@@ -785,6 +814,8 @@ export default function PayrollPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [payDateFrom, setPayDateFrom] = useState('');
+  const [payDateTo, setPayDateTo] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showProcessModal, setShowProcessModal] = useState(false);
@@ -883,8 +914,11 @@ export default function PayrollPage() {
                          record.department.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
     const matchesDepartment = departmentFilter === 'all' || record.department === departmentFilter;
+    const matchesPayDate =
+      (!payDateFrom || (record.pay_date || '') >= payDateFrom) &&
+      (!payDateTo || (record.pay_date || '') <= payDateTo);
     
-    return matchesSearch && matchesStatus && matchesDepartment;
+    return matchesSearch && matchesStatus && matchesDepartment && matchesPayDate;
   });
 
   // Get unique departments for filter
@@ -1031,6 +1065,18 @@ export default function PayrollPage() {
                 <option key={dept} value={dept}>{dept}</option>
               ))}
             </FilterSelect>
+            <DateInput
+              type="date"
+              value={payDateFrom}
+              onChange={(e) => setPayDateFrom(e.target.value)}
+              aria-label="Pay date from"
+            />
+            <DateInput
+              type="date"
+              value={payDateTo}
+              onChange={(e) => setPayDateTo(e.target.value)}
+              aria-label="Pay date to"
+            />
           </ControlsRow>
         </Controls>
 
@@ -1080,7 +1126,7 @@ export default function PayrollPage() {
                     </TableCell>
                     <TableCell>{record.department}</TableCell>
                     <TableCell>
-                      {format(parseISO(record.pay_period_start), 'MMM dd')} - {format(parseISO(record.pay_period_end), 'MMM dd, yyyy')}
+                      {format(parseISO(record.pay_period_start), 'do MMM')} - {format(parseISO(record.pay_period_end), 'do MMM, yyyy')}
                     </TableCell>
                     <TableCell>{formatCurrency(record.gross_salary)}</TableCell>
                     <TableCell>{formatCurrency(record.total_deductions)}</TableCell>

@@ -25,28 +25,14 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 // Type definitions for jsPDF autoTable
-interface AutoTableOptions {
-  startY?: number;
-  head?: string[][];
-  body?: string[][];
-  theme?: string;
-  headStyles?: { fillColor: number[] };
-  margin?: { left: number; right: number };
-  columnStyles?: { [key: number]: { fontStyle?: string; cellWidth?: number | string; halign?: string } };
-}
-
-interface JsPDFWithAutoTable extends jsPDF {
-  autoTable: (options: AutoTableOptions) => void;
-  lastAutoTable: {
-    finalY: number;
-  };
-  internal: jsPDF['internal'] & {
-    pages: { length: number };
-  };
-}
+type JsPDFWithAutoTable = jsPDF & {
+  autoTable?: (options: unknown) => void;
+  lastAutoTable?: { finalY?: number };
+  internal: jsPDF['internal'] & { pages: { length: number } };
+};
 
 interface Client {
   id: string;
@@ -63,6 +49,7 @@ interface Invoice {
   invoice_number: string;
   amount: number;
   status: 'draft' | 'sent' | 'paid' | 'overdue';
+  issue_date?: string;
   due_date: string;
   created_at: string;
 }
@@ -562,7 +549,7 @@ export default function ClientDetailPage() {
         type: 'income' as const,
         amount: payment.amount,
         description: payment.notes || `Payment for Invoice ${payment.invoices?.invoice_number || payment.invoice_id}`,
-        category: 'Invoice Payment',
+        category: payment.payment_method || 'N/A',
         date: payment.payment_date,
         invoice_id: payment.invoice_id
       }));
@@ -613,270 +600,256 @@ export default function ClientDetailPage() {
     }
 
     try {
-      console.log('Starting PDF export for client:', client.name);
-      
-      const doc = new jsPDF();
+      const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
-      let yPosition = 20;
-
-      // Header
-      doc.setFontSize(20);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Client Report', pageWidth / 2, yPosition, { align: 'center' });
-      
-      yPosition += 10;
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Generated on ${format(new Date(), 'MMMM dd, yyyy')}`, pageWidth / 2, yPosition, { align: 'center' });
-      
-      yPosition += 20;
-
-      // Client Information Section
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Client Information', 20, yPosition);
-      yPosition += 10;
-
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      
-      const clientInfo = [
-        ['Name', client.name || 'N/A'],
-        ['Email', client.email || 'N/A'],
-        ['Phone', client.phone || 'N/A'],
-        ['Company', client.company || 'N/A'],
-        ['Address', client.address || 'N/A'],
-        ['Client Since', format(new Date(client.created_at), 'MMMM dd, yyyy')]
-      ];
-
-      // Use autoTable with proper typing
       const docWithAutoTable = doc as JsPDFWithAutoTable;
-      if (typeof docWithAutoTable.autoTable === 'function') {
-        docWithAutoTable.autoTable({
-          startY: yPosition,
-          head: [['Field', 'Value']],
-          body: clientInfo,
-          theme: 'grid',
-          headStyles: { fillColor: [41, 128, 185] },
-          margin: { left: 20, right: 20 },
-          columnStyles: {
-            0: { fontStyle: 'bold', cellWidth: 40 },
-            1: { cellWidth: 'auto' }
-          }
-        });
+      const marginX = 16;
+      const textColor: [number, number, number] = [17, 24, 39];
+      const mutedColor: [number, number, number] = [107, 114, 128];
+      const lineColor: [number, number, number] = [229, 231, 235];
+      let yPosition = 16;
 
-        yPosition = docWithAutoTable.lastAutoTable.finalY + 20;
-      } else {
-        // Fallback if autoTable is not available
-        console.warn('autoTable not available, using basic text');
-        clientInfo.forEach(([field, value]) => {
-          doc.text(`${field}: ${value}`, 20, yPosition);
-          yPosition += 8;
-        });
-        yPosition += 10;
-      }
+      const formatMoney = (amount: number) => formatPKR(Number(amount || 0));
+      const titleCase = (value: string) => value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const formatMaybeDate = (iso: string | undefined | null) => (iso ? format(new Date(iso), 'MMM d, yyyy') : '—');
 
-      // Financial Summary Section
-      if (yPosition > pageHeight - 60) {
+      const ensureRoom = (needed: number) => {
+        if (yPosition + needed <= pageHeight - 14) return;
         doc.addPage();
-        yPosition = 20;
+        yPosition = 16;
+      };
+
+      const sectionTitle = (label: string) => {
+        ensureRoom(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(...textColor);
+        doc.text(label, marginX, yPosition);
+        yPosition += 3;
+        doc.setDrawColor(...lineColor);
+        doc.setLineWidth(0.3);
+        doc.line(marginX, yPosition, pageWidth - marginX, yPosition);
+        yPosition += 6;
+      };
+
+      const runAutoTable = (options: Record<string, unknown>) => {
+        const anyDoc = docWithAutoTable as unknown as Record<string, unknown>;
+        const maybeAutoTable = (docWithAutoTable as unknown as { autoTable?: (opts: unknown) => void }).autoTable;
+        if (typeof maybeAutoTable === 'function') {
+          maybeAutoTable(options);
+        } else {
+          const autoTableFn =
+            (autoTable as unknown as { default?: (doc: unknown, opts: unknown) => void }).default ??
+            (autoTable as unknown as (doc: unknown, opts: unknown) => void);
+          if (typeof autoTableFn !== 'function') {
+            throw new Error('PDF table generator is unavailable');
+          }
+          autoTableFn(docWithAutoTable, options);
+        }
+        const last = (anyDoc as { lastAutoTable?: { finalY?: number } }).lastAutoTable;
+        const finalY = typeof last?.finalY === 'number' ? last.finalY : undefined;
+        if (typeof finalY === 'number') yPosition = finalY + 6;
+      };
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(...textColor);
+      doc.text('Client Report', marginX, yPosition);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...mutedColor);
+      doc.text(`Generated ${format(new Date(), 'MMM d, yyyy')}`, pageWidth - marginX, yPosition, { align: 'right' });
+      yPosition += 7;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(...textColor);
+      doc.text(client.name || 'Client', marginX, yPosition);
+      yPosition += 6;
+
+      const metaLine = [client.company, client.email, client.phone].filter(Boolean).join(' • ');
+      if (metaLine) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(...mutedColor);
+        doc.text(metaLine, marginX, yPosition);
+        yPosition += 5;
       }
 
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Financial Summary', 20, yPosition);
-      yPosition += 10;
+      doc.setDrawColor(...lineColor);
+      doc.setLineWidth(0.3);
+      doc.line(marginX, yPosition, pageWidth - marginX, yPosition);
+      yPosition += 8;
 
-      const financialSummary = calculateFinancialSummary();
-      const summaryData = [
-        ['Total Invoiced', `$${financialSummary.totalInvoiced.toLocaleString()}`],
-        ['Total Paid', `$${financialSummary.totalPaid.toLocaleString()}`],
-        ['Total Pending', `$${financialSummary.totalPending.toLocaleString()}`],
-        ['Active Projects', financialSummary.activeProjects.toString()]
+      sectionTitle('Client Details');
+      const clientRows: Array<[string, string]> = [
+        ['Email', client.email || '—'],
+        ['Phone', client.phone || '—'],
+        ['Company', client.company || '—'],
+        ['Address', client.address || '—'],
+        ['Client Since', client.created_at ? format(new Date(client.created_at), 'MMM d, yyyy') : '—']
       ];
 
-      if (typeof docWithAutoTable.autoTable === 'function') {
-        docWithAutoTable.autoTable({
-          startY: yPosition,
-          head: [['Metric', 'Value']],
-          body: summaryData,
-          theme: 'grid',
-          headStyles: { fillColor: [46, 204, 113] },
-          margin: { left: 20, right: 20 },
-          columnStyles: {
-            0: { fontStyle: 'bold', cellWidth: 60 },
-            1: { cellWidth: 'auto', halign: 'right' }
-          }
-        });
-
-        yPosition = docWithAutoTable.lastAutoTable.finalY + 20;
-      } else {
-        summaryData.forEach(([metric, value]) => {
-          doc.text(`${metric}: ${value}`, 20, yPosition);
-          yPosition += 8;
-        });
-        yPosition += 10;
-      }
-
-      // Active Projects Section
-      console.log('All projects for PDF:', projects);
-      const activeProjects = projects.filter(project => project.status === 'active');
-      console.log('Active projects for PDF:', activeProjects);
-      console.log('Active projects count:', activeProjects.length);
-      
-      if (activeProjects && activeProjects.length > 0) {
-        if (yPosition > pageHeight - 60) {
-          doc.addPage();
-          yPosition = 20;
+      runAutoTable({
+        startY: yPosition,
+        body: clientRows.map(([k, v]) => [k, v]),
+        theme: 'plain',
+        margin: { left: marginX, right: marginX },
+        styles: {
+          font: 'helvetica',
+          fontSize: 9,
+          textColor,
+          cellPadding: { top: 2, right: 2, bottom: 2, left: 0 }
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 34, textColor },
+          1: { cellWidth: pageWidth - marginX * 2 - 34, textColor }
         }
+      });
 
-        doc.setFontSize(16);
+      sectionTitle('Summary');
+      const financialSummary = calculateFinancialSummary();
+      const kpis = [
+        { label: 'Total Invoiced', value: formatMoney(financialSummary.totalInvoiced) },
+        { label: 'Total Paid', value: formatMoney(financialSummary.totalPaid) },
+        { label: 'Outstanding', value: formatMoney(financialSummary.totalPending) },
+        { label: 'Active Projects', value: String(financialSummary.activeProjects) }
+      ];
+
+      const gap = 4;
+      const boxW = (pageWidth - marginX * 2 - gap * 3) / 4;
+      const boxH = 18;
+      ensureRoom(boxH + 8);
+      kpis.forEach((kpi, i) => {
+        const x = marginX + i * (boxW + gap);
+        doc.setDrawColor(...lineColor);
+        doc.setLineWidth(0.3);
+        doc.setFillColor(249, 250, 251);
+        doc.roundedRect(x, yPosition, boxW, boxH, 2, 2, 'FD');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...mutedColor);
+        doc.text(kpi.label, x + 3, yPosition + 6);
         doc.setFont('helvetica', 'bold');
-        doc.text('Active Projects', 20, yPosition);
-        yPosition += 10;
+        doc.setFontSize(10);
+        doc.setTextColor(...textColor);
+        doc.text(kpi.value, x + 3, yPosition + 13);
+      });
+      yPosition += boxH + 10;
 
-        const projectsData = activeProjects.map(project => [
-          project.name || 'N/A',
-          (project.project_type || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          (project.pricing_type || '').charAt(0).toUpperCase() + (project.pricing_type || '').slice(1),
-          `$${(project.amount || 0).toLocaleString()}`,
-          (project.status || '').charAt(0).toUpperCase() + (project.status || '').slice(1),
-          format(new Date(project.created_at), 'MMM dd, yyyy')
-        ]);
-
-        if (typeof docWithAutoTable.autoTable === 'function') {
-          docWithAutoTable.autoTable({
-            startY: yPosition,
-            head: [['Project Name', 'Type', 'Pricing', 'Amount', 'Status', 'Created']],
-            body: projectsData,
-            theme: 'grid',
-            headStyles: { fillColor: [155, 89, 182] },
-            margin: { left: 20, right: 20 },
-            columnStyles: {
-              0: { cellWidth: 40 },
-              1: { cellWidth: 30 },
-              2: { cellWidth: 20 },
-              3: { cellWidth: 25, halign: 'right' },
-              4: { cellWidth: 20 },
-              5: { cellWidth: 25 }
-            }
-          });
-
-          yPosition = docWithAutoTable.lastAutoTable.finalY + 20;
+      const paidDateByInvoiceId = new Map<string, string>();
+      transactions.forEach((t) => {
+        if (!t.invoice_id || !t.date) return;
+        const nextDate = new Date(t.date);
+        const prev = paidDateByInvoiceId.get(t.invoice_id);
+        if (!prev) {
+          paidDateByInvoiceId.set(t.invoice_id, nextDate.toISOString().slice(0, 10));
+          return;
         }
-      } else {
-        console.log('No active projects found for PDF export');
-        console.log('Project statuses:', projects.map(p => ({ name: p.name, status: p.status })));
-      }
+        const prevDate = new Date(prev);
+        if (nextDate > prevDate) paidDateByInvoiceId.set(t.invoice_id, nextDate.toISOString().slice(0, 10));
+      });
 
-      // Invoices Section
-      if (invoices && invoices.length > 0) {
-        if (yPosition > pageHeight - 60) {
-          doc.addPage();
-          yPosition = 20;
+      sectionTitle('Invoices');
+      runAutoTable({
+        startY: yPosition,
+        head: [['Invoice #', 'Amount', 'Issue Date', 'Due Date', 'Paid Date']],
+        body:
+          invoices.length > 0
+            ? invoices.map((inv) => [
+                inv.invoice_number || '—',
+                formatMoney(inv.amount || 0),
+                formatMaybeDate(inv.issue_date),
+                formatMaybeDate(inv.due_date),
+                (() => {
+                  const paidISO = paidDateByInvoiceId.get(inv.id);
+                  if (!paidISO) return '—';
+                  return formatMaybeDate(paidISO);
+                })()
+              ])
+            : [['No invoices', '—', '—', '—', '—']],
+        theme: 'striped',
+        margin: { left: marginX, right: marginX },
+        styles: { font: 'helvetica', fontSize: 8.5, textColor, lineColor, lineWidth: 0.2, cellPadding: 3 },
+        headStyles: { fillColor: [243, 244, 246], textColor, fontStyle: 'bold', lineColor, lineWidth: 0.2 },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        columnStyles: {
+          0: { cellWidth: 50 },
+          1: { halign: 'right', cellWidth: 34 },
+          2: { cellWidth: 40 },
+          3: { cellWidth: 40 },
+          4: { cellWidth: 40 }
         }
+      });
+      yPosition += 2;
 
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Invoices', 20, yPosition);
-        yPosition += 10;
-
-        const invoicesData = invoices.map(invoice => [
-          invoice.invoice_number || 'N/A',
-          `$${(invoice.amount || 0).toLocaleString()}`,
-          (invoice.status || '').charAt(0).toUpperCase() + (invoice.status || '').slice(1),
-          format(new Date(invoice.due_date), 'MMM dd, yyyy'),
-          format(new Date(invoice.created_at), 'MMM dd, yyyy')
-        ]);
-
-        if (typeof docWithAutoTable.autoTable === 'function') {
-          docWithAutoTable.autoTable({
-            startY: yPosition,
-            head: [['Invoice #', 'Amount', 'Status', 'Due Date', 'Created']],
-            body: invoicesData,
-            theme: 'grid',
-            headStyles: { fillColor: [230, 126, 34] },
-            margin: { left: 20, right: 20 },
-            columnStyles: {
-              0: { cellWidth: 35 },
-              1: { cellWidth: 30, halign: 'right' },
-              2: { cellWidth: 25 },
-              3: { cellWidth: 30 },
-              4: { cellWidth: 30 },
-              5: { fontStyle: 'normal', cellWidth: 25 }
-            }
-          });
-
-          yPosition = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 20;
+      sectionTitle('Projects');
+      runAutoTable({
+        startY: yPosition,
+        head: [['Project Name', 'Type', 'Pricing', 'Amount', 'Status', 'Created']],
+        body:
+          projects.length > 0
+            ? projects.map((p) => [
+                p.name || '—',
+                titleCase(p.project_type || ''),
+                titleCase(p.pricing_type || ''),
+                formatMoney(p.amount || 0),
+                titleCase(p.status || ''),
+                formatMaybeDate(p.created_at)
+              ])
+            : [['No projects', '—', '—', '—', '—', '—']],
+        theme: 'striped',
+        margin: { left: marginX, right: marginX },
+        styles: { font: 'helvetica', fontSize: 8.5, textColor, lineColor, lineWidth: 0.2, cellPadding: 3 },
+        headStyles: { fillColor: [243, 244, 246], textColor, fontStyle: 'bold', lineColor, lineWidth: 0.2 },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        columnStyles: {
+          0: { cellWidth: 78 },
+          1: { cellWidth: 38 },
+          2: { cellWidth: 30 },
+          3: { halign: 'right', cellWidth: 32 },
+          4: { cellWidth: 28 },
+          5: { cellWidth: 32 }
         }
-      }
+      });
+      yPosition += 2;
 
-      // Transactions Section
-      console.log('Transactions for PDF:', transactions);
-      if (transactions && transactions.length > 0) {
-        if (yPosition > pageHeight - 60) {
-          doc.addPage();
-          yPosition = 20;
+      sectionTitle('Transactions');
+      runAutoTable({
+        startY: yPosition,
+        head: [['Date', 'Description', 'Amount', 'Method', 'Status']],
+        body:
+          transactions.length > 0
+            ? transactions.map((t) => [formatMaybeDate(t.date), t.description || '—', formatMoney(t.amount || 0), t.category || 'N/A', 'Completed'])
+            : [['—', 'No transactions', '—', '—', '—']],
+        theme: 'striped',
+        margin: { left: marginX, right: marginX },
+        styles: { font: 'helvetica', fontSize: 8.5, textColor, lineColor, lineWidth: 0.2, cellPadding: 3 },
+        headStyles: { fillColor: [243, 244, 246], textColor, fontStyle: 'bold', lineColor, lineWidth: 0.2 },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        columnStyles: {
+          0: { cellWidth: 34 },
+          1: { cellWidth: 120 },
+          2: { halign: 'right', cellWidth: 34 },
+          3: { cellWidth: 34 },
+          4: { cellWidth: 30 }
         }
+      });
+      yPosition += 2;
 
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Transaction History', 20, yPosition);
-        yPosition += 10;
-
-        const transactionsData = transactions.map(transaction => [
-          (transaction.type || '').charAt(0).toUpperCase() + (transaction.type || '').slice(1),
-          transaction.description || 'N/A',
-          transaction.category || 'N/A',
-          `$${(transaction.amount || 0).toLocaleString()}`,
-          format(new Date(transaction.date), 'MMM dd, yyyy')
-        ]);
-
-        console.log('Transactions data for PDF table:', transactionsData);
-
-        if (typeof docWithAutoTable.autoTable === 'function') {
-          docWithAutoTable.autoTable({
-            startY: yPosition,
-            head: [['Type', 'Description', 'Category', 'Amount', 'Date']],
-            body: transactionsData,
-            theme: 'grid',
-            headStyles: { fillColor: [52, 152, 219] },
-            margin: { left: 20, right: 20 },
-            columnStyles: {
-              0: { cellWidth: 20, fontStyle: 'normal' },
-              1: { cellWidth: 50, fontStyle: 'normal' },
-              2: { cellWidth: 30, fontStyle: 'normal' },
-              3: { cellWidth: 25, halign: 'right', fontStyle: 'normal' },
-              4: { cellWidth: 25, fontStyle: 'normal' }
-            }
-          });
-        }
-      } else {
-        console.log('No transactions found for PDF export');
-      }
-
-      // Footer
       const totalPages = (doc as JsPDFWithAutoTable).internal.pages.length;
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
-        doc.text(
-          `Page ${i} of ${totalPages}`,
-          pageWidth / 2,
-          pageHeight - 10,
-          { align: 'center' }
-        );
+        doc.setTextColor(...mutedColor);
+        doc.text('Quantumnexa Finance App', marginX, pageHeight - 10);
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth - marginX, pageHeight - 10, { align: 'right' });
       }
 
-      // Save the PDF
-      const fileName = `client_report_${client.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-      console.log('Saving PDF as:', fileName);
+      const fileName = `client_report_${client.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.pdf`;
       doc.save(fileName);
-      
-      console.log('PDF export completed successfully');
-      
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('There was an error generating the PDF. Please check the console for details.');

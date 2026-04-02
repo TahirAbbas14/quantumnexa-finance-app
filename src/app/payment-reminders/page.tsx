@@ -1,1099 +1,1167 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
-import { createSupabaseClient } from '@/lib/supabase'
-import DashboardLayout from '@/components/layout/DashboardLayout'
-import styled from 'styled-components'
-import { 
-  Plus, 
-  Calendar, 
-  Clock, 
-  Edit, 
-  Trash2, 
-  Bell, 
-  BellOff, 
-  Mail,
-  MessageSquare,
-  Smartphone,
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import { createSupabaseClient } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatPKR } from '@/lib/currency';
+import { addDays, addMonths, addWeeks, addYears, format, isBefore, isValid, parseISO } from 'date-fns';
+import {
   AlertTriangle,
+  Calendar,
   CheckCircle,
-  XCircle,
-  Settings,
-  Download,
-  Filter,
-  Eye,
-  Send,
-  Users,
-  Target,
-  Zap
-} from 'lucide-react'
+  Clock,
+  Edit,
+  Loader2,
+  Pause,
+  Play,
+  Plus,
+  RefreshCw,
+  Trash2,
+  X
+} from 'lucide-react';
+import styled from 'styled-components';
 
-// Styled Components matching dashboard design
+type ReminderType = 'invoice_payment' | 'subscription_renewal' | 'bill_payment' | 'tax_payment' | 'loan_payment' | 'other';
+type ReminderPriority = 'low' | 'medium' | 'high' | 'urgent';
+type ReminderStatus = 'pending' | 'completed' | 'overdue' | 'cancelled';
+type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+
+type PaymentReminder = {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  amount: number | null;
+  currency: string | null;
+  due_date: string;
+  reminder_type: ReminderType;
+  priority: ReminderPriority;
+  status: ReminderStatus;
+  is_recurring: boolean;
+  recurring_frequency: RecurringFrequency | null;
+  next_reminder_date: string | null;
+  related_invoice_id: string | null;
+  related_subscription_id: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type InvoiceOption = { id: string; invoice_number: string | null; total_amount: number | null; status: string | null };
+type SubscriptionOption = { id: string; name: string; amount: number | null; is_active: boolean | null };
+
+type ReminderFormState = {
+  title: string;
+  description: string;
+  amount: string;
+  currency: string;
+  due_date: string;
+  reminder_type: ReminderType;
+  priority: ReminderPriority;
+  status: ReminderStatus;
+  is_recurring: boolean;
+  recurring_frequency: RecurringFrequency;
+  next_reminder_date: string;
+  related_invoice_id: string;
+  related_subscription_id: string;
+  notes: string;
+};
+
 const Container = styled.div`
-  padding: 2rem;
+  padding: 24px;
   max-width: 1400px;
   margin: 0 auto;
-  
-  @media (max-width: 768px) {
-    padding: 1rem;
-  }
-`
+`;
 
 const Header = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 2rem;
-  gap: 1rem;
-  
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 24px;
+
   @media (max-width: 768px) {
     flex-direction: column;
     align-items: stretch;
   }
-  
+`;
+
+const TitleBlock = styled.div`
   h1 {
-    font-size: 2rem;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.95);
+    font-size: 26px;
+    font-weight: 800;
+    color: #ffffff;
     margin: 0;
-    
-    @media (max-width: 768px) {
-      font-size: 1.75rem;
-    }
+    letter-spacing: -0.01em;
   }
-  
+
   p {
-    color: rgba(255, 255, 255, 0.7);
-    margin: 0.5rem 0 0 0;
-    font-size: 1rem;
+    margin: 8px 0 0 0;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.65);
+    line-height: 1.4;
   }
-`
+`;
 
 const HeaderActions = styled.div`
   display: flex;
-  gap: 0.75rem;
+  gap: 10px;
   align-items: center;
-  
-  @media (max-width: 768px) {
-    justify-content: stretch;
-    
-    > * {
-      flex: 1;
-    }
-  }
-`
-
-const Button = styled.button<{ variant?: 'primary' | 'secondary' | 'danger' }>`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border-radius: 12px;
-  font-weight: 500;
-  font-size: 0.875rem;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  border: none;
-  white-space: nowrap;
-  
-  ${props => {
-    switch (props.variant) {
-      case 'primary':
-        return `
-          background: rgba(99, 102, 241, 0.8);
-          color: white;
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(99, 102, 241, 0.3);
-          
-          &:hover {
-            background: rgba(99, 102, 241, 0.9);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
-          }
-        `;
-      case 'danger':
-        return `
-          background: rgba(239, 68, 68, 0.8);
-          color: white;
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(239, 68, 68, 0.3);
-          
-          &:hover {
-            background: rgba(239, 68, 68, 0.9);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
-          }
-        `;
-      default:
-        return `
-          background: rgba(255, 255, 255, 0.05);
-          color: rgba(255, 255, 255, 0.8);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          
-          &:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.95);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-          }
-        `;
-    }
-  }}
-`
+  flex-wrap: wrap;
+`;
 
 const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-  
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-`
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  margin-bottom: 18px;
+`;
 
-const StatCard = styled.div<{ color?: string }>`
-  background: rgba(255, 255, 255, 0.1);
+const StatCard = styled(Card)`
+  background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: ${props => props.color || 'var(--primary-500)'};
-  }
-
-  &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-    border-color: rgba(255, 255, 255, 0.3);
-  }
-`
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 18px;
+`;
 
 const StatHeader = styled.div`
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-bottom: 1rem;
-`
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+`;
 
-const StatIcon = styled.div<{ color?: string }>`
+const StatLabel = styled.div`
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.65);
+`;
+
+const StatValue = styled.div`
+  margin-top: 6px;
+  font-size: 24px;
+  font-weight: 900;
+  color: #ffffff;
+`;
+
+const StatHint = styled.div`
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+`;
+
+interface StatIconProps {
+  $color?: string;
+  $textColor?: string;
+}
+
+const StatIcon = styled.div.withConfig({
+  shouldForwardProp: (prop) => prop !== '$color' && prop !== '$textColor'
+})<StatIconProps>`
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: ${props => props.color || 'var(--primary-500)'};
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  box-shadow: 0 4px 12px ${props => props.color ? `${props.color}40` : 'rgba(239, 68, 68, 0.25)'};
-`
+  background: ${(p) => p.$color || 'rgba(255,255,255,0.10)'};
+  color: ${(p) => p.$textColor || '#fff'};
+`;
 
-const StatValue = styled.div`
-  font-size: 28px;
-  font-weight: 700;
-  color: white;
-  margin-bottom: 4px;
-`
-
-const StatLabel = styled.div`
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.875rem;
-  font-weight: 500;
-`
-
-const ContentGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 2rem;
-  
-  @media (min-width: 1200px) {
-    grid-template-columns: 2fr 1fr;
-  }
-`
-
-const MainContent = styled.div`
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-`
-
-const TableHeader = styled.div`
-  background: rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 24px;
+const ControlsBar = styled.div`
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  
-  @media (max-width: 768px) {
-    padding: 20px;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 18px;
+
+  @media (max-width: 900px) {
     flex-direction: column;
-    gap: 16px;
     align-items: stretch;
   }
-`
+`;
 
-const TableTitle = styled.h2`
-  font-size: 20px;
-  font-weight: 600;
-  color: white;
-  margin: 0;
-`
-
-const FilterButton = styled.button`
+const ControlsLeft = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.8);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 14px;
-  
-  &:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.3);
-    color: white;
-    transform: translateY(-1px);
+  gap: 10px;
+  flex-wrap: wrap;
+`;
+
+const ControlsRight = styled.div`
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+`;
+
+const TextInput = styled.input`
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  outline: none;
+  min-width: 240px;
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.45);
   }
-`
+`;
+
+const Select = styled.select`
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  outline: none;
+  min-width: 180px;
+
+  option {
+    background: #101010;
+    color: #ffffff;
+  }
+`;
+
+const InlineHint = styled.div`
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.60);
+`;
+
+const ListCard = styled(Card)`
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 18px;
+`;
+
+const ListHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+`;
+
+const ListTitle = styled.div`
+  font-size: 14px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.92);
+`;
 
 const Table = styled.div`
-  overflow-x: auto;
-`
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 14px;
+  overflow: hidden;
+`;
 
-const TableRow = styled.div.withConfig({
-  shouldForwardProp: (prop) => prop !== 'isHeader'
-})<{ isHeader?: boolean }>`
+const Row = styled.div<{ $header?: boolean }>`
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 120px;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  grid-template-columns: 1.8fr 1fr 1fr 1fr 1fr 210px;
+  gap: 12px;
+  padding: ${(p) => (p.$header ? '10px 12px' : '12px')};
+  background: ${(p) => (p.$header ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.02)')};
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   align-items: center;
-  transition: all 0.2s ease;
-
-  ${props => props.isHeader && `
-    background: rgba(255, 255, 255, 0.02);
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 0.875rem;
-  `}
 
   &:last-child {
     border-bottom: none;
   }
 
-  &:hover:not(:first-child) {
-    background: rgba(255, 255, 255, 0.02);
-  }
-  
-  @media (max-width: 768px) {
+  @media (max-width: 900px) {
     grid-template-columns: 1fr;
-    gap: 0.5rem;
-    padding: 1rem;
+    gap: ${(p) => (p.$header ? '8px' : '10px')};
   }
-`
+`;
 
-const PriorityBadge = styled.span<{ priority: string }>`
+const Th = styled.div`
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+`;
+
+const Td = styled.div`
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  min-width: 0;
+`;
+
+const Muted = styled.div`
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.60);
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const Pill = styled.span<{ $tone: 'green' | 'gray' | 'yellow' | 'red' | 'blue' }>`
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  
-  ${props => {
-    switch (props.priority) {
-      case 'high':
-        return `
-          background: rgba(239, 68, 68, 0.1);
-          color: rgba(239, 68, 68, 0.9);
-          border: 1px solid rgba(239, 68, 68, 0.2);
-        `;
-      case 'medium':
-        return `
-          background: rgba(245, 158, 11, 0.1);
-          color: rgba(245, 158, 11, 0.9);
-          border: 1px solid rgba(245, 158, 11, 0.2);
-        `;
-      case 'low':
-        return `
-          background: rgba(34, 197, 94, 0.1);
-          color: rgba(34, 197, 94, 0.9);
-          border: 1px solid rgba(34, 197, 94, 0.2);
-        `;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  background: ${(p) => {
+    switch (p.$tone) {
+      case 'green':
+        return 'rgba(16, 185, 129, 0.18)';
+      case 'yellow':
+        return 'rgba(245, 158, 11, 0.18)';
+      case 'red':
+        return 'rgba(239, 68, 68, 0.18)';
+      case 'blue':
+        return 'rgba(59, 130, 246, 0.18)';
       default:
-        return `
-          background: rgba(156, 163, 175, 0.1);
-          color: rgba(156, 163, 175, 0.9);
-          border: 1px solid rgba(156, 163, 175, 0.2);
-        `;
+        return 'rgba(255, 255, 255, 0.10)';
     }
-  }}
-`
-
-const StatusBadge = styled.span<{ status: string }>`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  
-  ${props => {
-    switch (props.status) {
-      case 'active':
-        return `
-          background: rgba(34, 197, 94, 0.1);
-          color: rgba(34, 197, 94, 0.9);
-          border: 1px solid rgba(34, 197, 94, 0.2);
-        `;
-      case 'sent':
-        return `
-          background: rgba(99, 102, 241, 0.1);
-          color: rgba(99, 102, 241, 0.9);
-          border: 1px solid rgba(99, 102, 241, 0.2);
-        `;
-      case 'paused':
-        return `
-          background: rgba(156, 163, 175, 0.1);
-          color: rgba(156, 163, 175, 0.9);
-          border: 1px solid rgba(156, 163, 175, 0.2);
-        `;
-      case 'overdue':
-        return `
-          background: rgba(239, 68, 68, 0.1);
-          color: rgba(239, 68, 68, 0.9);
-          border: 1px solid rgba(239, 68, 68, 0.2);
-        `;
+  }};
+  color: ${(p) => {
+    switch (p.$tone) {
+      case 'green':
+        return '#34d399';
+      case 'yellow':
+        return '#fbbf24';
+      case 'red':
+        return '#f87171';
+      case 'blue':
+        return '#60a5fa';
       default:
-        return `
-          background: rgba(156, 163, 175, 0.1);
-          color: rgba(156, 163, 175, 0.9);
-          border: 1px solid rgba(156, 163, 175, 0.2);
-        `;
+        return 'rgba(255,255,255,0.80)';
     }
-  }}
-`
+  }};
+`;
 
-const ActionButtonsGroup = styled.div`
+const Actions = styled.div`
   display: flex;
-  gap: 0.5rem;
   justify-content: flex-end;
-`
+  gap: 8px;
+  flex-wrap: wrap;
 
-const IconButton = styled.button<{ variant?: 'edit' | 'delete' | 'toggle' | 'send' | 'view' }>`
+  @media (max-width: 900px) {
+    justify-content: flex-start;
+  }
+`;
+
+const ActionIconButton = styled.button`
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.2s ease;
-  
-  ${props => {
-    switch (props.variant) {
-      case 'edit':
-        return `
-          background: rgba(99, 102, 241, 0.1);
-          color: rgba(99, 102, 241, 0.8);
-          
-          &:hover {
-            background: rgba(99, 102, 241, 0.2);
-            color: rgba(99, 102, 241, 1);
-          }
-        `;
-      case 'delete':
-        return `
-          background: rgba(239, 68, 68, 0.1);
-          color: rgba(239, 68, 68, 0.8);
-          
-          &:hover {
-            background: rgba(239, 68, 68, 0.2);
-            color: rgba(239, 68, 68, 1);
-          }
-        `;
-      case 'toggle':
-        return `
-          background: rgba(245, 158, 11, 0.1);
-          color: rgba(245, 158, 11, 0.8);
-          
-          &:hover {
-            background: rgba(245, 158, 11, 0.2);
-            color: rgba(245, 158, 11, 1);
-          }
-        `;
-      case 'send':
-        return `
-          background: rgba(34, 197, 94, 0.1);
-          color: rgba(34, 197, 94, 0.8);
-          
-          &:hover {
-            background: rgba(34, 197, 94, 0.2);
-            color: rgba(34, 197, 94, 1);
-          }
-        `;
-      case 'view':
-        return `
-          background: rgba(156, 163, 175, 0.1);
-          color: rgba(156, 163, 175, 0.8);
-          
-          &:hover {
-            background: rgba(156, 163, 175, 0.2);
-            color: rgba(156, 163, 175, 1);
-          }
-        `;
-      default:
-        return `
-          background: rgba(255, 255, 255, 0.05);
-          color: rgba(255, 255, 255, 0.7);
-          
-          &:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.9);
-          }
-        `;
-    }
-  }}
-`
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.10);
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
 
 const EmptyState = styled.div`
+  padding: 28px;
   text-align: center;
-  padding: 3rem 1.5rem;
-  color: rgba(255, 255, 255, 0.6);
-`
+  color: rgba(255, 255, 255, 0.70);
+`;
 
-const EmptyStateIcon = styled.div`
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 1rem;
-  background: rgba(99, 102, 241, 0.1);
-  border-radius: 50%;
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(99, 102, 241, 0.8);
-`
+  padding: 18px;
+  z-index: 50;
+`;
 
-const Sidebar = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-`
-
-const SidebarCard = styled.div`
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background: rgba(255, 255, 255, 0.05);
-  }
-`
-
-const SidebarTitle = styled.h3`
-  font-size: 18px;
-  font-weight: 600;
-  color: white;
-  margin: 0 0 16px 0;
-`
-
-const QuickAction = styled.button`
+const ModalContent = styled.div`
   width: 100%;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  color: rgba(255, 255, 255, 0.8);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-align: left;
+  max-width: 780px;
+  background: rgba(20, 20, 20, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 18px;
+  backdrop-filter: blur(20px);
+  max-height: 90vh;
+  overflow: auto;
+`;
+
+const ModalHeader = styled.div`
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+`;
 
-  &:last-child {
-    margin-bottom: 0;
+const ModalTitle = styled.div`
+  font-size: 18px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.95);
+`;
+
+const FieldGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
   }
+`;
 
-  &:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
-    color: white;
-    transform: translateX(4px);
-  }
-`
-
-const NotificationMethod = styled.div`
+const Field = styled.div`
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.6);
-`
+  flex-direction: column;
+  gap: 8px;
 
-const UpcomingReminder = styled.div<{ priority: string }>`
-  padding: 0.75rem;
-  border-radius: 12px;
-  margin-bottom: 0.75rem;
-  border-left: 4px solid;
-  background: rgba(255, 255, 255, 0.02);
-  transition: all 0.2s ease;
-  
-  &:hover {
-    background: rgba(255, 255, 255, 0.04);
+  label {
+    font-size: 13px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.85);
   }
-  
-  ${props => {
-    switch (props.priority) {
-      case 'high':
-        return `
-          border-left-color: rgba(239, 68, 68, 0.8);
-          background: rgba(239, 68, 68, 0.05);
-        `;
-      case 'medium':
-        return `
-          border-left-color: rgba(245, 158, 11, 0.8);
-          background: rgba(245, 158, 11, 0.05);
-        `;
-      case 'low':
-        return `
-          border-left-color: rgba(34, 197, 94, 0.8);
-          background: rgba(34, 197, 94, 0.05);
-        `;
-      default:
-        return `
-          border-left-color: rgba(156, 163, 175, 0.8);
-          background: rgba(156, 163, 175, 0.05);
-        `;
-    }
-  }}
-`
+`;
 
-// Interfaces
-interface PaymentReminder {
-  id: string
-  title: string
-  description?: string
-  due_date: string
-  amount?: number
-  currency: string
-  priority: 'high' | 'medium' | 'low'
-  notification_methods: string[]
-  days_before: number[]
-  is_active: boolean
-  recipient_email?: string
-  recipient_phone?: string
-  status: 'active' | 'sent' | 'paused' | 'overdue'
-  created_at: string
-  last_sent?: string
-}
+const TextArea = styled.textarea`
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  outline: none;
+  resize: vertical;
+`;
 
-interface ReminderStats {
-  totalReminders: number
-  activeReminders: number
-  sentThisWeek: number
-  overdueReminders: number
-}
+const ErrorText = styled.div`
+  margin-top: 12px;
+  font-size: 13px;
+  color: #ef4444;
+`;
+
+const InlineRow = styled.div`
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+`;
+
+const formatISODate = (d: Date) => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+const safeDate = (iso: string | null | undefined) => {
+  if (!iso) return null;
+  const d = parseISO(iso);
+  return isValid(d) ? d : null;
+};
+
+const addByFrequency = (date: Date, frequency: RecurringFrequency) => {
+  switch (frequency) {
+    case 'daily':
+      return addDays(date, 1);
+    case 'weekly':
+      return addWeeks(date, 1);
+    case 'monthly':
+      return addMonths(date, 1);
+    case 'quarterly':
+      return addMonths(date, 3);
+    case 'yearly':
+      return addYears(date, 1);
+    default:
+      return addMonths(date, 1);
+  }
+};
+
+const toFormState = (r?: PaymentReminder): ReminderFormState => {
+  const today = formatISODate(new Date());
+  return {
+    title: r?.title || '',
+    description: r?.description || '',
+    amount: r?.amount != null ? String(r.amount) : '',
+    currency: r?.currency || 'PKR',
+    due_date: (r?.due_date || today).slice(0, 10),
+    reminder_type: r?.reminder_type || 'bill_payment',
+    priority: r?.priority || 'medium',
+    status: r?.status || 'pending',
+    is_recurring: Boolean(r?.is_recurring),
+    recurring_frequency: (r?.recurring_frequency || 'monthly') as RecurringFrequency,
+    next_reminder_date: (r?.next_reminder_date || '').slice(0, 10),
+    related_invoice_id: r?.related_invoice_id || '',
+    related_subscription_id: r?.related_subscription_id || '',
+    notes: r?.notes || ''
+  };
+};
 
 export default function PaymentRemindersPage() {
-  const { user } = useAuth()
-  const [reminders, setReminders] = useState<PaymentReminder[]>([])
-  const [stats, setStats] = useState<ReminderStats>({
-    totalReminders: 0,
-    activeReminders: 0,
-    sentThisWeek: 0,
-    overdueReminders: 0
-  })
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
+  const { user } = useAuth();
+  const supabase = createSupabaseClient();
 
-  useEffect(() => {
-    if (user) {
-      fetchReminders()
-      fetchStats()
+  const [reminders, setReminders] = useState<PaymentReminder[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceOption[]>([]);
+  const [subscriptions, setSubscriptions] = useState<SubscriptionOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | ReminderStatus>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | ReminderType>('all');
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editing, setEditing] = useState<PaymentReminder | null>(null);
+  const [form, setForm] = useState<ReminderFormState>(() => toFormState());
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const getErrorText = (e: unknown) => {
+    if (!e) return 'Unknown error';
+    if (typeof e === 'string') return e;
+    if (e instanceof Error) return e.message || 'Unknown error';
+    const anyErr = e as { message?: string; error?: string; details?: string; hint?: string; code?: string };
+    return anyErr.message || anyErr.error || anyErr.details || anyErr.hint || anyErr.code || 'Unknown error';
+  };
+
+  const fetchInvoices = useCallback(async () => {
+    if (!supabase || !user?.id) return;
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('id, invoice_number, total_amount, status')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) return;
+    setInvoices((data || []) as InvoiceOption[]);
+  }, [supabase, user?.id]);
+
+  const fetchSubscriptions = useCallback(async () => {
+    if (!supabase || !user?.id) return;
+    const { data, error } = await supabase.from('subscriptions').select('id, name, amount, is_active').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(50);
+    if (error) return;
+    setSubscriptions((data || []) as SubscriptionOption[]);
+  }, [supabase, user?.id]);
+
+  const fetchReminders = useCallback(async () => {
+    if (!supabase || !user?.id) return;
+    const { data, error } = await supabase
+      .from('payment_reminders')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('due_date', { ascending: true });
+    if (error) {
+      const msg = getErrorText(error).toLowerCase();
+      if (msg.includes('schema cache') || msg.includes('payment_reminders')) {
+        setReminders([]);
+        return;
+      }
+      throw error;
     }
-  }, [user])
+    setReminders((data || []) as PaymentReminder[]);
+  }, [supabase, user?.id]);
 
-  const fetchReminders = async () => {
+  const refresh = useCallback(async () => {
     try {
-      const supabase = createSupabaseClient();
-      
-      if (!supabase) {
-        console.error('Supabase client is null');
-        return;
-      }
-      const { data, error } = await supabase
-        .from('payment_reminders')
-        .select(`
-          id,
-          title,
-          description,
-          amount,
-          currency,
-          due_date,
-          reminder_type,
-          priority,
-          status,
-          is_recurring,
-          recurring_frequency,
-          next_reminder_date,
-          notes,
-          created_at,
-          updated_at
-        `)
-        .eq('user_id', user?.id ?? '')
-        .order('due_date', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching reminders:', error);
-        return;
-      }
-
-      const mappedData = (data || []).map(item => ({
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        due_date: item.due_date,
-        amount: item.amount,
-        currency: item.currency,
-        priority: item.priority,
-        notification_methods: [], // default empty
-        days_before: [],          // default empty
-        is_active: item.status === 'pending',
-        recipient_email: undefined,
-        recipient_phone: undefined,
-        status: item.status,
-        created_at: item.created_at,
-        last_sent: undefined
-      }));
-      setReminders(mappedData);
-    } catch (error) {
-      console.error('Error fetching reminders:', error);
+      setLoading(true);
+      setPageError(null);
+      await Promise.all([fetchReminders(), fetchInvoices(), fetchSubscriptions()]);
+    } catch (e) {
+      setPageError(getErrorText(e));
     } finally {
       setLoading(false);
     }
-  }
+  }, [fetchInvoices, fetchReminders, fetchSubscriptions]);
 
-  const fetchStats = async () => {
+  useEffect(() => {
+    if (!user?.id) return;
+    refresh();
+  }, [refresh, user?.id]);
+
+  const stats = useMemo(() => {
+    const now = new Date();
+    const total = reminders.length;
+    const pending = reminders.filter((r) => r.status === 'pending').length;
+    const completed = reminders.filter((r) => r.status === 'completed').length;
+    const overdue = reminders.filter((r) => r.status === 'pending' && r.due_date && isBefore(parseISO(r.due_date), now)).length;
+    const dueSoon = reminders.filter((r) => {
+      if (r.status !== 'pending') return false;
+      const d = safeDate(r.due_date);
+      if (!d) return false;
+      const diff = (d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      return diff >= 0 && diff <= 7;
+    }).length;
+    return { total, pending, completed, overdue, dueSoon };
+  }, [reminders]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return reminders.filter((r) => {
+      if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+      if (typeFilter !== 'all' && r.reminder_type !== typeFilter) return false;
+      if (!q) return true;
+      return (r.title || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q) || (r.notes || '').toLowerCase().includes(q);
+    });
+  }, [reminders, search, statusFilter, typeFilter]);
+
+  const openCreate = () => {
+    setFormError(null);
+    setEditing(null);
+    setForm(toFormState());
+    setShowCreate(true);
+  };
+
+  const openEdit = (r: PaymentReminder) => {
+    setFormError(null);
+    setEditing(r);
+    setForm(toFormState(r));
+    setShowEdit(true);
+  };
+
+  const closeModal = () => {
+    setShowCreate(false);
+    setShowEdit(false);
+    setEditing(null);
+    setFormError(null);
+  };
+
+  const saveReminder = async () => {
+    if (!supabase || !user?.id) return;
     try {
-      const supabase = createSupabaseClient();
-      
-      // Get all reminders for the user
-      const { data: allReminders, error } = await supabase!
-        .from('payment_reminders')
-        .select('id, status, due_date, created_at')
-        .eq('user_id', user?.id ?? '');
+      setSaving(true);
+      setFormError(null);
 
-      if (error) {
-        console.error('Error fetching stats:', error);
+      if (!form.title.trim()) {
+        setFormError('Title is required.');
+        return;
+      }
+      if (!form.due_date) {
+        setFormError('Due date is required.');
+        return;
+      }
+      const amount = form.amount.trim() ? Number(form.amount) : null;
+      if (form.amount.trim() && (!Number.isFinite(amount) || (amount ?? 0) < 0)) {
+        setFormError('Amount must be a valid number.');
+        return;
+      }
+      if (form.is_recurring && !form.next_reminder_date) {
+        setFormError('Next reminder date is required for recurring reminders.');
         return;
       }
 
-      const now = new Date();
-      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      
-      const totalReminders = allReminders?.length || 0;
-      const activeReminders = allReminders?.filter(r => r.status === 'pending').length || 0;
-      const sentThisWeek = allReminders?.filter(r => 
-        new Date(r.created_at) >= oneWeekAgo && new Date(r.created_at) <= now
-      ).length || 0;
-      const overdueReminders = allReminders?.filter(r => 
-        r.status === 'pending' && new Date(r.due_date) < now
-      ).length || 0;
+      const payload = {
+        user_id: user.id,
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        amount,
+        currency: form.currency || 'PKR',
+        due_date: form.due_date,
+        reminder_type: form.reminder_type,
+        priority: form.priority,
+        status: form.status,
+        is_recurring: form.is_recurring,
+        recurring_frequency: form.is_recurring ? form.recurring_frequency : null,
+        next_reminder_date: form.is_recurring ? (form.next_reminder_date || null) : null,
+        related_invoice_id: form.related_invoice_id || null,
+        related_subscription_id: form.related_subscription_id || null,
+        notes: form.notes.trim() || null
+      };
 
-      setStats({
-        totalReminders,
-        activeReminders,
-        sentThisWeek,
-        overdueReminders
-      });
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-PK', {
-      style: 'currency',
-      currency: 'PKR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(amount)
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
-
-  const getDaysUntilDue = (dateString: string) => {
-    const dueDate = new Date(dateString)
-    const today = new Date()
-    const diffTime = dueDate.getTime() - today.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays
-  }
-
-  const getNotificationMethodIcon = (method: string) => {
-    switch (method) {
-      case 'email':
-        return <Mail size={12} />
-      case 'sms':
-        return <MessageSquare size={12} />
-      case 'push':
-        return <Smartphone size={12} />
-      default:
-        return <Bell size={12} />
-    }
-  }
-
-  const toggleReminder = async (reminderId: string, currentStatus: boolean) => {
-    try {
-      // API call to toggle reminder status
-      setReminders(prev => 
-        prev.map(reminder => 
-          reminder.id === reminderId 
-            ? { ...reminder, is_active: !currentStatus }
-            : reminder
-        )
-      )
-    } catch (error) {
-      console.error('Error toggling reminder:', error)
-    }
-  }
-
-  const sendReminder = async (reminderId: string) => {
-    try {
-      // API call to send reminder immediately
-      setReminders(prev => 
-        prev.map(reminder => 
-          reminder.id === reminderId 
-            ? { ...reminder, status: 'sent', last_sent: new Date().toISOString() }
-            : reminder
-        )
-      )
-    } catch (error) {
-      console.error('Error sending reminder:', error)
-    }
-  }
-
-  const deleteReminder = async (reminderId: string) => {
-    if (window.confirm('Are you sure you want to delete this reminder?')) {
-      try {
-        // API call to delete reminder
-        setReminders(prev => prev.filter(reminder => reminder.id !== reminderId))
-      } catch (error) {
-        console.error('Error deleting reminder:', error)
+      if (editing) {
+        const { error } = await supabase.from('payment_reminders').update(payload).eq('id', editing.id).eq('user_id', user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('payment_reminders').insert(payload);
+        if (error) throw error;
       }
-    }
-  }
 
-  const filteredReminders = reminders.filter(reminder => {
-    switch (filter) {
-      case 'active':
-        return reminder.is_active && reminder.status === 'active'
-      case 'sent':
-        return reminder.status === 'sent'
-      case 'overdue':
-        return reminder.status === 'overdue'
-      case 'paused':
-        return !reminder.is_active
-      default:
-        return true
+      await fetchReminders();
+      closeModal();
+    } catch (e) {
+      setFormError(getErrorText(e));
+    } finally {
+      setSaving(false);
     }
-  })
+  };
 
-  const upcomingReminders = reminders
-    .filter(reminder => reminder.is_active && getDaysUntilDue(reminder.due_date) <= 14 && getDaysUntilDue(reminder.due_date) >= 0)
-    .sort((a, b) => getDaysUntilDue(a.due_date) - getDaysUntilDue(b.due_date))
-    .slice(0, 5)
+  const removeReminder = async (r: PaymentReminder) => {
+    if (!supabase || !user?.id) return;
+    const ok = window.confirm('Delete this reminder?');
+    if (!ok) return;
+    try {
+      setBusyId(r.id);
+      const { error } = await supabase.from('payment_reminders').delete().eq('id', r.id).eq('user_id', user.id);
+      if (error) throw error;
+      await fetchReminders();
+    } catch (e) {
+      setPageError(getErrorText(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const togglePause = async (r: PaymentReminder) => {
+    if (!supabase || !user?.id) return;
+    try {
+      setBusyId(r.id);
+      const nextStatus: ReminderStatus = r.status === 'cancelled' ? 'pending' : 'cancelled';
+      const { error } = await supabase.from('payment_reminders').update({ status: nextStatus }).eq('id', r.id).eq('user_id', user.id);
+      if (error) throw error;
+      await fetchReminders();
+    } catch (e) {
+      setPageError(getErrorText(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const completeReminder = async (r: PaymentReminder) => {
+    if (!supabase || !user?.id) return;
+    try {
+      setBusyId(r.id);
+
+      if (r.is_recurring) {
+        const due = safeDate(r.due_date) || new Date();
+        const nextDue = r.next_reminder_date ? safeDate(r.next_reminder_date) : null;
+        const effectiveDue = nextDue || addByFrequency(due, (r.recurring_frequency || 'monthly') as RecurringFrequency);
+        const nextNext = addByFrequency(effectiveDue, (r.recurring_frequency || 'monthly') as RecurringFrequency);
+        const { error } = await supabase
+          .from('payment_reminders')
+          .update({
+            status: 'pending',
+            due_date: formatISODate(effectiveDue),
+            next_reminder_date: formatISODate(nextNext)
+          })
+          .eq('id', r.id)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('payment_reminders').update({ status: 'completed' }).eq('id', r.id).eq('user_id', user.id);
+        if (error) throw error;
+      }
+
+      await fetchReminders();
+    } catch (e) {
+      setPageError(getErrorText(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const displayStatus = (r: PaymentReminder): ReminderStatus => {
+    if (r.status !== 'pending') return r.status;
+    const d = safeDate(r.due_date);
+    if (!d) return r.status;
+    return isBefore(d, new Date()) ? 'overdue' : 'pending';
+  };
 
   if (loading) {
     return (
       <DashboardLayout>
         <Container>
-          <div style={{ color: 'rgba(255, 255, 255, 0.7)' }}>Loading...</div>
+          <div style={{ padding: '60px 0', textAlign: 'center', color: 'rgba(255,255,255,0.85)' }}>
+            <Loader2 className="animate-spin" size={28} style={{ marginBottom: '12px' }} />
+            Loading payment reminders...
+          </div>
         </Container>
       </DashboardLayout>
-    )
+    );
   }
 
   return (
     <DashboardLayout>
       <Container>
         <Header>
-          <div>
+          <TitleBlock>
             <h1>Payment Reminders</h1>
-            <p>Manage and track your payment reminders</p>
-          </div>
+            <p>Track due dates and keep recurring payments on schedule.</p>
+          </TitleBlock>
           <HeaderActions>
-            <Button variant="secondary">
-              <Download size={20} />
-              Export
+            <Button variant="outline" onClick={refresh}>
+              <RefreshCw size={16} />
+              Refresh
             </Button>
-            <Button variant="primary">
-              <Plus size={20} />
-              Add Reminder
+            <Button onClick={openCreate}>
+              <Plus size={16} />
+              New Reminder
             </Button>
           </HeaderActions>
         </Header>
 
+        {pageError && (
+          <div style={{ marginBottom: '18px' }}>
+            <Card variant="glass" padding="lg">
+              <div style={{ color: 'rgba(255,255,255,0.90)', fontWeight: 900 }}>Something went wrong</div>
+              <div style={{ marginTop: '8px', color: 'rgba(255,255,255,0.70)', fontSize: '13px' }}>{pageError}</div>
+            </Card>
+          </div>
+        )}
+
         <StatsGrid>
-          <StatCard color="var(--info-500)">
+          <StatCard>
             <StatHeader>
               <div>
-                <StatValue>{stats.totalReminders}</StatValue>
-                <StatLabel>Total Reminders</StatLabel>
+                <StatLabel>Total</StatLabel>
+                <StatValue>{stats.total}</StatValue>
               </div>
-              <StatIcon color="var(--info-500)">
-                <Bell size={24} />
+              <StatIcon $color="rgba(59, 130, 246, 0.18)" $textColor="#60a5fa">
+                <Clock size={22} />
               </StatIcon>
             </StatHeader>
+            <StatHint>All reminders</StatHint>
           </StatCard>
-          <StatCard color="var(--success-500)">
+          <StatCard>
             <StatHeader>
               <div>
-                <StatValue>{stats.activeReminders}</StatValue>
-                <StatLabel>Active Reminders</StatLabel>
+                <StatLabel>Pending</StatLabel>
+                <StatValue>{stats.pending}</StatValue>
               </div>
-              <StatIcon color="var(--success-500)">
-                <CheckCircle size={24} />
+              <StatIcon $color="rgba(245, 158, 11, 0.18)" $textColor="#fbbf24">
+                <Calendar size={22} />
               </StatIcon>
             </StatHeader>
+            <StatHint>Upcoming and due</StatHint>
           </StatCard>
-          <StatCard color="var(--warning-500)">
+          <StatCard>
             <StatHeader>
               <div>
-                <StatValue>{stats.sentThisWeek}</StatValue>
-                <StatLabel>Sent This Week</StatLabel>
+                <StatLabel>Due Soon</StatLabel>
+                <StatValue>{stats.dueSoon}</StatValue>
               </div>
-              <StatIcon color="var(--warning-500)">
-                <Send size={24} />
+              <StatIcon $color="rgba(255, 255, 255, 0.10)" $textColor="rgba(255,255,255,0.92)">
+                <Clock size={22} />
               </StatIcon>
             </StatHeader>
+            <StatHint>Next 7 days</StatHint>
           </StatCard>
-          <StatCard color="var(--error-500)">
+          <StatCard>
             <StatHeader>
               <div>
-                <StatValue>{stats.overdueReminders}</StatValue>
-                <StatLabel>Overdue Reminders</StatLabel>
+                <StatLabel>Overdue</StatLabel>
+                <StatValue style={{ color: stats.overdue > 0 ? '#f87171' : '#ffffff' }}>{stats.overdue}</StatValue>
               </div>
-              <StatIcon color="var(--error-500)">
-                <AlertTriangle size={24} />
+              <StatIcon $color="rgba(239, 68, 68, 0.18)" $textColor="#f87171">
+                <AlertTriangle size={22} />
               </StatIcon>
             </StatHeader>
+            <StatHint>Past due date</StatHint>
           </StatCard>
         </StatsGrid>
 
-        <ContentGrid>
-          <MainContent>
-            <TableHeader>
-              <TableTitle>Payment Reminders</TableTitle>
-              <FilterButton onClick={() => setFilter(filter === 'all' ? 'active' : 'all')}>
-                <Filter size={16} />
-                {filter === 'all' ? 'All' : 'Active'}
-              </FilterButton>
-            </TableHeader>
-            
-            <Table>
-              <TableRow isHeader>
-                <div>Reminder</div>
-                <div>Due Date</div>
-                <div>Amount</div>
-                <div>Priority</div>
-                <div>Status</div>
-                <div>Actions</div>
-              </TableRow>
-              
-              {filteredReminders.length === 0 ? (
-                <EmptyState>
-                  <EmptyStateIcon>
-                    <Bell size={32} />
-                  </EmptyStateIcon>
-                  <h3 style={{ color: 'rgba(255, 255, 255, 0.8)', marginBottom: '0.5rem' }}>No reminders found</h3>
-                  <p style={{ marginBottom: '1.5rem' }}>Create your first payment reminder to get started.</p>
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <Button variant="primary">
-                      <Plus size={20} />
-                      Add Reminder
+        <ControlsBar>
+          <ControlsLeft>
+            <TextInput placeholder="Search reminders..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}>
+              <option value="all">All status</option>
+              <option value="pending">Pending</option>
+              <option value="completed">Completed</option>
+              <option value="overdue">Overdue</option>
+              <option value="cancelled">Cancelled</option>
+            </Select>
+            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}>
+              <option value="all">All types</option>
+              <option value="invoice_payment">Invoice payment</option>
+              <option value="subscription_renewal">Subscription renewal</option>
+              <option value="bill_payment">Bill payment</option>
+              <option value="tax_payment">Tax payment</option>
+              <option value="loan_payment">Loan payment</option>
+              <option value="other">Other</option>
+            </Select>
+          </ControlsLeft>
+          <ControlsRight>
+            <InlineHint>{filtered.length} shown</InlineHint>
+          </ControlsRight>
+        </ControlsBar>
+
+        <ListCard>
+          <ListHeader>
+            <ListTitle>Reminders</ListTitle>
+          </ListHeader>
+
+          <Table>
+            <Row $header>
+              <Th>Reminder</Th>
+              <Th>Type</Th>
+              <Th>Due</Th>
+              <Th>Amount</Th>
+              <Th>Status</Th>
+              <Th style={{ textAlign: 'right' }}>Actions</Th>
+            </Row>
+
+            {filtered.length === 0 ? (
+              <EmptyState>
+                <div style={{ fontWeight: 900, color: 'rgba(255,255,255,0.92)' }}>
+                  {reminders.length === 0 ? 'No reminders yet' : 'No reminders match your filters'}
+                </div>
+                <div style={{ marginTop: '8px', fontSize: '13px' }}>
+                  {reminders.length === 0 ? 'Create a reminder to track upcoming payments.' : 'Try adjusting search or filters.'}
+                </div>
+                {reminders.length === 0 && (
+                  <div style={{ marginTop: '14px' }}>
+                    <Button onClick={openCreate}>
+                      <Plus size={16} />
+                      Create Reminder
                     </Button>
                   </div>
-                </EmptyState>
-              ) : (
-                filteredReminders.map((reminder) => (
-                  <TableRow key={reminder.id}>
-                    <div>
-                      <div style={{ fontWeight: '500', color: 'rgba(255, 255, 255, 0.9)', marginBottom: '0.25rem' }}>
-                        {reminder.title}
-                      </div>
-                      {reminder.description && (
-                        <div style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.6)' }}>
-                          {reminder.description}
-                        </div>
-                      )}
-                      {reminder.notification_methods.length > 0 && (
-                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                          {reminder.notification_methods.map((method, index) => (
-                            <NotificationMethod key={index}>
-                              {getNotificationMethodIcon(method)}
-                              {method}
-                            </NotificationMethod>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-                      {formatDate(reminder.due_date)}
-                      <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)', marginTop: '0.25rem' }}>
-                        {getDaysUntilDue(reminder.due_date) >= 0 
-                          ? `${getDaysUntilDue(reminder.due_date)} days left`
-                          : `${Math.abs(getDaysUntilDue(reminder.due_date))} days overdue`
-                        }
-                      </div>
-                    </div>
-                    <div style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-                      {reminder.amount ? formatCurrency(reminder.amount) : '-'}
-                    </div>
-                    <div>
-                      <PriorityBadge priority={reminder.priority}>
-                        {reminder.priority === 'high' && <AlertTriangle size={12} />}
-                        {reminder.priority === 'medium' && <Clock size={12} />}
-                        {reminder.priority === 'low' && <CheckCircle size={12} />}
-                        {reminder.priority}
-                      </PriorityBadge>
-                    </div>
-                    <div>
-                      <StatusBadge status={reminder.status}>
-                        {reminder.status === 'active' && <CheckCircle size={12} />}
-                        {reminder.status === 'sent' && <Send size={12} />}
-                        {reminder.status === 'paused' && <XCircle size={12} />}
-                        {reminder.status === 'overdue' && <AlertTriangle size={12} />}
-                        {reminder.status}
-                      </StatusBadge>
-                    </div>
-                    <ActionButtonsGroup>
-                      <IconButton variant="view" title="View Details">
-                        <Eye size={16} />
-                      </IconButton>
-                      <IconButton variant="edit" title="Edit Reminder">
-                        <Edit size={16} />
-                      </IconButton>
-                      <IconButton 
-                        variant="toggle" 
-                        title={reminder.is_active ? "Pause Reminder" : "Activate Reminder"}
-                        onClick={() => toggleReminder(reminder.id, reminder.is_active)}
-                      >
-                        {reminder.is_active ? <BellOff size={16} /> : <Bell size={16} />}
-                      </IconButton>
-                      <IconButton 
-                        variant="send" 
-                        title="Send Now"
-                        onClick={() => sendReminder(reminder.id)}
-                      >
-                        <Send size={16} />
-                      </IconButton>
-                      <IconButton 
-                        variant="delete" 
-                        title="Delete Reminder"
-                        onClick={() => deleteReminder(reminder.id)}
-                      >
-                        <Trash2 size={16} />
-                      </IconButton>
-                    </ActionButtonsGroup>
-                  </TableRow>
-                ))
-              )}
-            </Table>
-          </MainContent>
+                )}
+              </EmptyState>
+            ) : (
+              filtered.map((r) => {
+                const busy = busyId === r.id;
+                const status = displayStatus(r);
+                const statusTone = status === 'completed' ? 'green' : status === 'overdue' ? 'red' : status === 'cancelled' ? 'gray' : 'yellow';
+                const typeTone = r.reminder_type === 'subscription_renewal' ? 'blue' : 'gray';
 
-          <Sidebar>
-            <SidebarCard>
-              <SidebarTitle>Upcoming Reminders</SidebarTitle>
-              {upcomingReminders.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'rgba(255, 255, 255, 0.6)', padding: '1rem 0' }}>
-                  No upcoming reminders
+                const amountLabel = r.amount != null ? formatPKR(Number(r.amount || 0)) : '—';
+                const dueLabel = r.due_date ? format(new Date(r.due_date), 'MMM d, yyyy') : '—';
+                const invoice = r.related_invoice_id ? invoices.find((i) => i.id === r.related_invoice_id) : null;
+                const subscription = r.related_subscription_id ? subscriptions.find((s) => s.id === r.related_subscription_id) : null;
+
+                return (
+                  <Row key={r.id}>
+                    <Td>
+                      <div style={{ fontWeight: 900, color: 'rgba(255,255,255,0.92)' }}>{r.title}</div>
+                      {r.description ? <Muted>{r.description}</Muted> : null}
+                      {invoice?.invoice_number ? <Muted>Invoice: {invoice.invoice_number}</Muted> : null}
+                      {subscription?.name ? <Muted>Subscription: {subscription.name}</Muted> : null}
+                    </Td>
+                    <Td>
+                      <Pill $tone={typeTone}>
+                        <Clock size={14} />
+                        {r.reminder_type.replace('_', ' ')}
+                      </Pill>
+                    </Td>
+                    <Td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Calendar size={14} style={{ color: 'rgba(255,255,255,0.65)' }} />
+                        <span style={{ color: status === 'overdue' ? '#f87171' : 'rgba(255,255,255,0.85)', fontWeight: status === 'overdue' ? 900 : 700 }}>
+                          {dueLabel}
+                        </span>
+                      </div>
+                      {r.is_recurring && r.next_reminder_date ? <Muted>Next: {format(new Date(r.next_reminder_date), 'MMM d')}</Muted> : null}
+                    </Td>
+                    <Td style={{ fontWeight: 900, color: 'rgba(255,255,255,0.92)' }}>{amountLabel}</Td>
+                    <Td>
+                      <Pill $tone={statusTone}>
+                        {status === 'completed' ? <CheckCircle size={14} /> : status === 'cancelled' ? <Pause size={14} /> : <AlertTriangle size={14} />}
+                        {status}
+                      </Pill>
+                    </Td>
+                    <Td>
+                      <Actions>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy || status === 'completed' || status === 'cancelled'}
+                          onClick={() => completeReminder(r)}
+                          style={{ height: '34px', padding: '0 12px' }}
+                        >
+                          <CheckCircle size={16} />
+                          {r.is_recurring ? 'Next' : 'Complete'}
+                        </Button>
+                        <ActionIconButton onClick={() => togglePause(r)} disabled={busy} title={r.status === 'cancelled' ? 'Resume' : 'Pause'}>
+                          {r.status === 'cancelled' ? <Play size={16} /> : <Pause size={16} />}
+                        </ActionIconButton>
+                        <ActionIconButton onClick={() => openEdit(r)} disabled={busy} title="Edit">
+                          <Edit size={16} />
+                        </ActionIconButton>
+                        <ActionIconButton onClick={() => removeReminder(r)} disabled={busy} title="Delete">
+                          <Trash2 size={16} />
+                        </ActionIconButton>
+                      </Actions>
+                    </Td>
+                  </Row>
+                );
+              })
+            )}
+          </Table>
+        </ListCard>
+
+        {(showCreate || showEdit) && (
+          <ModalOverlay onClick={closeModal}>
+            <ModalContent onClick={(e) => e.stopPropagation()}>
+              <ModalHeader>
+                <ModalTitle>{showEdit ? 'Edit reminder' : 'New reminder'}</ModalTitle>
+                <ActionIconButton onClick={closeModal} title="Close">
+                  <X size={16} />
+                </ActionIconButton>
+              </ModalHeader>
+
+              <FieldGrid>
+                <Field>
+                  <label>Title</label>
+                  <TextInput value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
+                </Field>
+                <Field>
+                  <label>Type</label>
+                  <Select value={form.reminder_type} onChange={(e) => setForm((p) => ({ ...p, reminder_type: e.target.value as ReminderType }))}>
+                    <option value="invoice_payment">Invoice payment</option>
+                    <option value="subscription_renewal">Subscription renewal</option>
+                    <option value="bill_payment">Bill payment</option>
+                    <option value="tax_payment">Tax payment</option>
+                    <option value="loan_payment">Loan payment</option>
+                    <option value="other">Other</option>
+                  </Select>
+                </Field>
+                <Field>
+                  <label>Due date</label>
+                  <TextInput type="date" value={form.due_date} onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))} />
+                </Field>
+                <Field>
+                  <label>Priority</label>
+                  <Select value={form.priority} onChange={(e) => setForm((p) => ({ ...p, priority: e.target.value as ReminderPriority }))}>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </Select>
+                </Field>
+                <Field>
+                  <label>Amount (optional)</label>
+                  <TextInput inputMode="decimal" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} />
+                </Field>
+                <Field>
+                  <label>Currency</label>
+                  <Select value={form.currency} onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}>
+                    <option value="PKR">PKR</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                  </Select>
+                </Field>
+                <Field>
+                  <label>Status</label>
+                  <Select value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value as ReminderStatus }))}>
+                    <option value="pending">Pending</option>
+                    <option value="completed">Completed</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="cancelled">Cancelled</option>
+                  </Select>
+                </Field>
+                <Field>
+                  <label>Recurring</label>
+                  <Select value={form.is_recurring ? 'yes' : 'no'} onChange={(e) => setForm((p) => ({ ...p, is_recurring: e.target.value === 'yes' }))}>
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </Select>
+                </Field>
+              </FieldGrid>
+
+              {form.is_recurring && (
+                <div style={{ marginTop: '12px' }}>
+                  <FieldGrid>
+                    <Field>
+                      <label>Recurring frequency</label>
+                      <Select
+                        value={form.recurring_frequency}
+                        onChange={(e) => setForm((p) => ({ ...p, recurring_frequency: e.target.value as RecurringFrequency }))}
+                      >
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="yearly">Yearly</option>
+                      </Select>
+                    </Field>
+                    <Field>
+                      <label>Next reminder date</label>
+                      <TextInput
+                        type="date"
+                        value={form.next_reminder_date}
+                        onChange={(e) => setForm((p) => ({ ...p, next_reminder_date: e.target.value }))}
+                      />
+                    </Field>
+                  </FieldGrid>
                 </div>
-              ) : (
-                upcomingReminders.map((reminder) => (
-                  <UpcomingReminder key={reminder.id} priority={reminder.priority}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                      <div style={{ fontWeight: '500', color: 'rgba(255, 255, 255, 0.9)' }}>
-                        {reminder.title}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.6)' }}>
-                        {getDaysUntilDue(reminder.due_date)} days
-                      </div>
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.7)' }}>
-                      {formatDate(reminder.due_date)}
-                    </div>
-                    {reminder.amount && (
-                      <div style={{ fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.8)', marginTop: '0.25rem' }}>
-                        {formatCurrency(reminder.amount)}
-                      </div>
-                    )}
-                  </UpcomingReminder>
-                ))
               )}
-            </SidebarCard>
 
-            <SidebarCard>
-              <SidebarTitle>Quick Actions</SidebarTitle>
-              <QuickAction>
-                <Plus size={20} />
-                Create New Reminder
-              </QuickAction>
-              <QuickAction>
-                <Settings size={20} />
-                Notification Settings
-              </QuickAction>
-              <QuickAction>
-                <Target size={20} />
-                Reminder Templates
-              </QuickAction>
-              <QuickAction>
-                <Zap size={20} />
-                Bulk Actions
-              </QuickAction>
-            </SidebarCard>
-          </Sidebar>
-        </ContentGrid>
+              <div style={{ marginTop: '12px' }}>
+                <FieldGrid>
+                  <Field>
+                    <label>Linked invoice (optional)</label>
+                    <Select value={form.related_invoice_id} onChange={(e) => setForm((p) => ({ ...p, related_invoice_id: e.target.value }))}>
+                      <option value="">None</option>
+                      {invoices.map((inv) => (
+                        <option key={inv.id} value={inv.id}>
+                          {inv.invoice_number || inv.id.slice(0, 8)} ({formatPKR(Number(inv.total_amount || 0))})
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field>
+                    <label>Linked subscription (optional)</label>
+                    <Select value={form.related_subscription_id} onChange={(e) => setForm((p) => ({ ...p, related_subscription_id: e.target.value }))}>
+                      <option value="">None</option>
+                      {subscriptions.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({formatPKR(Number(s.amount || 0))})
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                </FieldGrid>
+              </div>
+
+              <Field style={{ marginTop: '12px' }}>
+                <label>Description (optional)</label>
+                <TextArea rows={3} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
+              </Field>
+
+              <Field style={{ marginTop: '12px' }}>
+                <label>Notes (optional)</label>
+                <TextArea rows={3} value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} />
+              </Field>
+
+              <InlineRow style={{ marginTop: '10px', color: 'rgba(255,255,255,0.60)', fontSize: '12px' }}>
+                {form.is_recurring && form.next_reminder_date ? (
+                  <>
+                    <Clock size={14} />
+                    Next schedule: {format(addByFrequency(parseISO(form.next_reminder_date), form.recurring_frequency), 'MMM d, yyyy')}
+                  </>
+                ) : null}
+              </InlineRow>
+
+              {formError ? <ErrorText>{formError}</ErrorText> : null}
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
+                <Button variant="outline" onClick={closeModal} disabled={saving}>
+                  Cancel
+                </Button>
+                <Button onClick={saveReminder} disabled={saving}>
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : null}
+                  {showEdit ? 'Save' : 'Create'}
+                </Button>
+              </div>
+            </ModalContent>
+          </ModalOverlay>
+        )}
       </Container>
     </DashboardLayout>
-  )
+  );
 }
+

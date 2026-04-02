@@ -19,7 +19,6 @@ import {
   Target,
   PiggyBank,
   TrendingUp,
-  AlertTriangle,
   Calculator,
   Activity,
   Calendar,
@@ -359,7 +358,6 @@ export default function Sidebar() {
     { name: 'Budgets', href: '/budgets', icon: Target, current: pathname === '/budgets' },
     { name: 'Savings', href: '/savings', icon: PiggyBank, current: pathname === '/savings' },
     { name: 'Budget Comparison', href: '/budget-comparison', icon: TrendingUp, current: pathname === '/budget-comparison' },
-    { name: 'Budget Alerts', href: '/budget-alerts', icon: AlertTriangle, current: pathname === '/budget-alerts' },
     
     // Recurring Features
     { name: 'Recurring Invoices', href: '/recurring-invoices', icon: RefreshCw, current: pathname === '/recurring-invoices' },
@@ -429,10 +427,10 @@ function SidebarContentComponent({ pathname, onSignOut, user, navigation }: {
   // Group navigation items by category
   const coreFeatures = navigation.slice(0, 5) // Dashboard through Expenses
   const employeePayroll = navigation.slice(5, 9) // Employees through Payroll History
-  const financialManagement = navigation.slice(9, 13) // Budgets through Budget Alerts
-  const recurringFeatures = navigation.slice(13, 17) // Recurring Invoices through Payment Reminders
-  const advancedReports = navigation.slice(17, 22) // Reports through Business Metrics
-  const settings = navigation.slice(22) // Settings
+  const financialManagement = navigation.slice(9, 12) // Budgets through Budget Comparison
+  const recurringFeatures = navigation.slice(12, 16) // Recurring Invoices through Payment Reminders
+  const advancedReports = navigation.slice(16, 21) // Reports through Business Metrics
+  const settings = navigation.slice(21) // Settings
 
   return (
     <NavigationContainer>

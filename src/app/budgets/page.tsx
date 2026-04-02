@@ -17,7 +17,6 @@ import {
   Loader2,
   TrendingUp,
   TrendingDown,
-  AlertTriangle,
   CheckCircle,
   Target,
   PiggyBank,
@@ -81,6 +80,60 @@ const StatsGrid = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 24px;
   margin-bottom: 40px;
+`;
+
+const PeriodBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 18px;
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+`;
+
+const PeriodLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+`;
+
+const PeriodTitle = styled.div`
+  font-size: 13px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+`;
+
+const PeriodHint = styled.div`
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const PeriodControls = styled.div`
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+
+  @media (max-width: 900px) {
+    width: 100%;
+  }
 `;
 
 interface StatCardProps {
@@ -677,8 +730,55 @@ export default function BudgetsPage() {
   const [showAddBudget, setShowAddBudget] = useState(false);
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [showAddCategory, setShowAddCategory] = useState(false);
+  const [periodPreset, setPeriodPreset] = useState<'this_month' | 'last_month' | 'custom'>('this_month');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
   const { user } = useAuth();
   const supabase = createSupabaseClient();
+
+  const toISODate = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
+  const period = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
+    const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
+
+    if (periodPreset === 'this_month') {
+      const start = startOfMonth(now);
+      const end = endOfMonth(now);
+      return { preset: periodPreset, start, end, startISO: toISODate(start), endISO: toISODate(end) };
+    }
+
+    if (periodPreset === 'last_month') {
+      const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const start = startOfMonth(last);
+      const end = endOfMonth(last);
+      return { preset: periodPreset, start, end, startISO: toISODate(start), endISO: toISODate(end) };
+    }
+
+    const safeFrom = customFrom || toISODate(startOfMonth(now));
+    const safeTo = customTo || toISODate(endOfMonth(now));
+    const start = new Date(safeFrom);
+    const end = new Date(safeTo);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) {
+      const fallbackStart = startOfMonth(now);
+      const fallbackEnd = endOfMonth(now);
+      return { preset: periodPreset, start: fallbackStart, end: fallbackEnd, startISO: toISODate(fallbackStart), endISO: toISODate(fallbackEnd) };
+    }
+    const normalizedStart = start <= end ? start : end;
+    const normalizedEnd = start <= end ? end : start;
+    return { preset: periodPreset, start: normalizedStart, end: normalizedEnd, startISO: toISODate(normalizedStart), endISO: toISODate(normalizedEnd) };
+  }, [customFrom, customTo, periodPreset]);
+
+  useEffect(() => {
+    if (periodPreset !== 'custom') return;
+    if (customFrom || customTo) return;
+    setCustomFrom(period.startISO);
+    setCustomTo(period.endISO);
+  }, [customFrom, customTo, period.endISO, period.startISO, periodPreset]);
 
   // Memoize fetch functions to avoid missing dependencies in useEffect
   const fetchBudgets = useCallback(async () => {
@@ -703,15 +803,25 @@ export default function BudgetsPage() {
       if (error) throw error;
       const rawBudgets = (data || []) as Budget[];
 
-      const earliestStart = rawBudgets
-        .map((b) => b.start_date)
-        .filter(Boolean)
-        .sort()[0];
-      const latestEnd = rawBudgets
-        .map((b) => b.end_date)
-        .filter(Boolean)
-        .sort()
-        .slice(-1)[0];
+      const compareISO = (a: string, b: string) => a.localeCompare(b);
+      const maxISO = (a: string, b: string) => (compareISO(a, b) >= 0 ? a : b);
+      const minISO = (a: string, b: string) => (compareISO(a, b) <= 0 ? a : b);
+
+      const ranges = rawBudgets
+        .map((b) => {
+          const baseStart = b.start_date;
+          const baseEnd = b.end_date;
+          const effectiveStart = b.budget_type === 'monthly' ? period.startISO : baseStart;
+          const effectiveEnd = b.budget_type === 'monthly' ? period.endISO : baseEnd;
+          const aggStart = maxISO(effectiveStart, period.startISO);
+          const aggEnd = minISO(effectiveEnd, period.endISO);
+          if (compareISO(aggStart, aggEnd) > 0) return null;
+          return { aggStart, aggEnd };
+        })
+        .filter(Boolean) as Array<{ aggStart: string; aggEnd: string }>;
+
+      const earliestStart = ranges.map((r) => r.aggStart).sort(compareISO)[0];
+      const latestEnd = ranges.map((r) => r.aggEnd).sort(compareISO).slice(-1)[0];
 
       let expenses: Array<{ amount: number; category: string; date: string }> = [];
       if (earliestStart && latestEnd) {
@@ -727,70 +837,86 @@ export default function BudgetsPage() {
 
       const normalize = (v: string) => v.trim().toLowerCase();
 
-      const updatedBudgets = rawBudgets.map((budget) => {
-        const start = budget.start_date ? new Date(budget.start_date) : null;
-        const end = budget.end_date ? new Date(budget.end_date) : null;
+      const updatedBudgets = rawBudgets
+        .map((budget) => {
+          const baseStartISO = budget.start_date;
+          const baseEndISO = budget.end_date;
+          const effectiveStartISO = budget.budget_type === 'monthly' ? period.startISO : baseStartISO;
+          const effectiveEndISO = budget.budget_type === 'monthly' ? period.endISO : baseEndISO;
+          const aggStartISO = maxISO(effectiveStartISO, period.startISO);
+          const aggEndISO = minISO(effectiveEndISO, period.endISO);
+          if (compareISO(aggStartISO, aggEndISO) > 0) return null;
 
-        const items = (budget.budget_items || []).map((item) => {
-          const categoryName = item.budget_categories?.name || '';
-          const spent = expenses
-            .filter((e) => {
-              if (!start || !end) return false;
-              const d = new Date(e.date);
-              return d >= start && d <= end && normalize(e.category || '') === normalize(categoryName);
-            })
-            .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+          const start = new Date(aggStartISO);
+          const end = new Date(aggEndISO);
 
-          const allocated = Number(item.allocated_amount || 0);
-          const remaining = Math.max(0, allocated - spent);
-          const pct = allocated > 0 ? (spent / allocated) * 100 : 0;
+          const items = (budget.budget_items || []).map((item) => {
+            const categoryName = item.budget_categories?.name || '';
+            const spent = expenses
+              .filter((e) => {
+                const d = new Date(e.date);
+                return d >= start && d <= end && normalize(e.category || '') === normalize(categoryName);
+              })
+              .reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
+            const allocated = Number(item.allocated_amount || 0);
+            const remaining = Math.max(0, allocated - spent);
+            const pct = allocated > 0 ? (spent / allocated) * 100 : 0;
+
+            return {
+              ...item,
+              spent_amount: spent,
+              remaining_amount: remaining,
+              percentage_used: pct
+            };
+          });
+
+          const totalAllocated = items.reduce((sum, i) => sum + Number(i.allocated_amount || 0), 0);
           return {
-            ...item,
-            spent_amount: spent,
-            remaining_amount: remaining,
-            percentage_used: pct
+            ...budget,
+            start_date: aggStartISO,
+            end_date: aggEndISO,
+            total_amount: Number(budget.total_amount || totalAllocated),
+            budget_items: items
           };
-        });
-
-        const totalAllocated = items.reduce((sum, i) => sum + Number(i.allocated_amount || 0), 0);
-        return {
-          ...budget,
-          total_amount: Number(budget.total_amount || totalAllocated),
-          budget_items: items
-        };
-      });
+        })
+        .filter(Boolean) as Budget[];
 
       setBudgets(updatedBudgets);
 
-      const updates = updatedBudgets.flatMap((b) => b.budget_items || []).map((item) => ({
-        id: item.id,
-        spent_amount: item.spent_amount,
-        remaining_amount: item.remaining_amount,
-        percentage_used: item.percentage_used,
-        updated_at: new Date().toISOString()
-      }));
+      if (period.preset === 'this_month') {
+        const updates = updatedBudgets
+          .filter((b) => b.budget_type === 'monthly')
+          .flatMap((b) => b.budget_items || [])
+          .map((item) => ({
+            id: item.id,
+            spent_amount: item.spent_amount,
+            remaining_amount: item.remaining_amount,
+            percentage_used: item.percentage_used,
+            updated_at: new Date().toISOString()
+          }));
 
-      if (updates.length > 0) {
-        await Promise.all(
-          updates.map((u) =>
-            supabase
-              .from('budget_items')
-              .update({
-                spent_amount: u.spent_amount,
-                remaining_amount: u.remaining_amount,
-                percentage_used: u.percentage_used,
-                updated_at: u.updated_at
-              })
-              .eq('id', u.id)
-              .eq('user_id', user?.id)
-          )
-        );
+        if (updates.length > 0) {
+          await Promise.all(
+            updates.map((u) =>
+              supabase
+                .from('budget_items')
+                .update({
+                  spent_amount: u.spent_amount,
+                  remaining_amount: u.remaining_amount,
+                  percentage_used: u.percentage_used,
+                  updated_at: u.updated_at
+                })
+                .eq('id', u.id)
+                .eq('user_id', user?.id)
+            )
+          );
+        }
       }
     } catch (error) {
       console.error('Error fetching budgets:', error);
     }
-  }, [supabase, user?.id]);
+  }, [period.endISO, period.preset, period.startISO, supabase, user?.id]);
 
   const fetchSavingsGoals = useCallback(async () => {
     try {
@@ -802,7 +928,38 @@ export default function BudgetsPage() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setSavingsGoals(data || []);
+      const goals = (data || []) as SavingsGoal[];
+      const goalIds = goals.map((g) => g.id).filter(Boolean);
+
+      if (goalIds.length === 0) {
+        setSavingsGoals([]);
+        return;
+      }
+
+      const { data: txData, error: txError } = await supabase
+        .from('savings_transactions')
+        .select('savings_goal_id, amount, transaction_type')
+        .eq('user_id', user?.id)
+        .in('savings_goal_id', goalIds);
+      if (txError) throw txError;
+
+      const totals = new Map<string, number>();
+      (txData || []).forEach((t: { savings_goal_id: string; amount: number; transaction_type: string }) => {
+        const prev = totals.get(t.savings_goal_id) || 0;
+        const amt = Number(t.amount || 0);
+        const delta = t.transaction_type === 'withdrawal' ? -amt : amt;
+        totals.set(t.savings_goal_id, prev + delta);
+      });
+
+      setSavingsGoals(
+        goals.map((g) => {
+          const computed = totals.get(g.id) ?? Number(g.current_amount || 0);
+          const computedSafe = Math.max(0, computed);
+          const computedStatus: SavingsGoal['status'] =
+            g.target_amount > 0 && computedSafe >= g.target_amount ? 'completed' : g.status;
+          return { ...g, current_amount: computedSafe, status: computedStatus };
+        })
+      );
     } catch (error) {
       console.error('Error fetching savings goals:', error);
     }
@@ -983,6 +1140,31 @@ export default function BudgetsPage() {
             </div>
           </StatCard>
         </StatsGrid>
+
+        <PeriodBar>
+          <PeriodLeft>
+            <PeriodTitle>
+              <Filter size={16} />
+              Period
+            </PeriodTitle>
+            <PeriodHint>
+              {period.start.toLocaleDateString()} – {period.end.toLocaleDateString()}
+            </PeriodHint>
+          </PeriodLeft>
+          <PeriodControls>
+            <Select value={periodPreset} onChange={(e) => setPeriodPreset(e.target.value as typeof periodPreset)} style={{ width: '180px' }}>
+              <option value="this_month">This Month</option>
+              <option value="last_month">Last Month</option>
+              <option value="custom">Custom</option>
+            </Select>
+            {periodPreset === 'custom' && (
+              <>
+                <TextInput type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} style={{ width: '170px' }} />
+                <TextInput type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} style={{ width: '170px' }} />
+              </>
+            )}
+          </PeriodControls>
+        </PeriodBar>
 
         <TabsContainer>
           <TabButton 
@@ -1614,23 +1796,6 @@ function RecentActivity({
         .order('updated_at', { ascending: false })
         .limit(2);
 
-      // Fetch budget alerts (items with high usage percentage)
-      if (!supabase) return;
-      const { data: budgetAlerts } = await supabase
-        .from('budget_items')
-        .select(`
-          id, 
-          allocated_amount, 
-          spent_amount, 
-          percentage_used,
-          updated_at,
-          budget_categories(name)
-        `)
-        .eq('user_id', user?.id)
-        .gte('percentage_used', 75)
-        .order('percentage_used', { ascending: false })
-        .limit(2);
-
       // Combine and format activities
       const formattedActivities: Activity[] = [];
 
@@ -1666,21 +1831,6 @@ function RecentActivity({
               color: 'blue'
             });
           }
-        });
-      }
-
-      // Add budget alerts
-      if (budgetAlerts) {
-        budgetAlerts.forEach(alert => {
-          formattedActivities.push({
-            id: `alert-${alert.id}`,
-            type: 'budget_alert',
-            title: 'Budget alert',
-            description: `${alert.budget_categories?.[0]?.name || 'Category'} budget ${Math.round(alert.percentage_used)}% used`,
-            timestamp: alert.updated_at,
-            icon: AlertTriangle,
-            color: 'yellow'
-          });
         });
       }
 

@@ -528,6 +528,7 @@ export default function DashboardPage() {
 
       const expensesQuery = (() => {
         let q = supabase.from('expenses').select('*').eq('user_id', user?.id).order('date', { ascending: false });
+        q = q.neq('category', 'Savings');
         if (startDate && endDate) q = q.gte('date', startDate).lte('date', endDate);
         return q;
       })();
@@ -556,7 +557,7 @@ export default function DashboardPage() {
         { data: budgetItems, error: budgetItemsError },
         { data: savingsGoals, error: savingsGoalsError },
         { data: savingsTransactions, error: savingsTransactionsError },
-        { data: budgetAlerts, error: budgetAlertsError }
+        { data: recurringIncomeHistory, error: recurringIncomeHistoryError }
       ] = await Promise.all([
         invoicesQuery,
         expensesQuery,
@@ -568,7 +569,11 @@ export default function DashboardPage() {
         supabase.from('budget_items').select('*').eq('user_id', user?.id),
         supabase.from('savings_goals').select('*').eq('user_id', user?.id),
         supabase.from('savings_transactions').select('*').eq('user_id', user?.id),
-        supabase.from('budget_alerts').select('*').eq('user_id', user?.id).eq('status', 'active')
+        (() => {
+          let q = supabase.from('recurring_income_history').select('amount, received_date, recurring_income_id').order('received_date', { ascending: false });
+          if (startDate && endDate) q = q.gte('received_date', startDate).lte('received_date', endDate);
+          return q;
+        })()
       ]);
 
       // Log any errors
@@ -578,6 +583,7 @@ export default function DashboardPage() {
       if (expensesError) console.error('Error fetching expenses:', expensesError);
       if (paymentsError) console.error('Error fetching payments:', paymentsError);
       if (paymentsToDateError) console.error('Error fetching paymentsToDate:', paymentsToDateError);
+      if (recurringIncomeHistoryError) console.error('Error fetching recurring income history:', recurringIncomeHistoryError);
 
       // Log data counts
       console.log('Dashboard data fetched:');
@@ -586,9 +592,28 @@ export default function DashboardPage() {
       console.log('- Invoices:', invoices?.length || 0);
       console.log('- Expenses:', expenses?.length || 0);
 
-      const totalRevenue = payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+      const paymentsRevenue = payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+      const recurringIncomeRevenue = (() => {
+        const err = recurringIncomeHistoryError as unknown as { message?: string; details?: string; code?: string } | null;
+        const msg = (err?.message || err?.details || err?.code || '').toString().toLowerCase();
+        if (msg.includes('schema cache') || msg.includes('recurring_income_history')) return 0;
+        return (recurringIncomeHistory || []).reduce((sum: number, r: { amount?: number }) => sum + Number(r.amount || 0), 0);
+      })();
+      const totalRevenue = paymentsRevenue + recurringIncomeRevenue;
       const totalExpenses = expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0;
-      const currentBalance = totalRevenue - totalExpenses;
+      const baseBalance = totalRevenue - totalExpenses;
+      const netSavings = (savingsTransactions || [])
+        .filter((t: { transaction_date?: string }) => {
+          if (!startDate || !endDate) return true;
+          const d = t.transaction_date || '';
+          return d >= startDate && d <= endDate;
+        })
+        .reduce((sum: number, t: { amount?: number; transaction_type?: string }) => {
+          const amt = Number(t.amount || 0);
+          const delta = t.transaction_type === 'withdrawal' ? -amt : amt;
+          return sum + delta;
+        }, 0);
+      const currentBalance = baseBalance - netSavings;
       const activeProjects = projects?.filter(p => p.status === 'active').length || 0;
       const totalClients = clients?.length || 0;
       const pendingInvoiceRows = (invoices || []).filter((inv) => ['sent', 'overdue'].includes(inv.status));
@@ -636,14 +661,32 @@ export default function DashboardPage() {
       const totalSpent = budgetItems?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
       const budgetUtilization = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
       const activeBudgets = budgets?.filter(b => b.status === 'active').length || 0;
-      const criticalAlerts = budgetAlerts?.filter(alert => alert.severity === 'critical').length || 0;
+      const criticalAlerts = 0;
 
       // Savings calculations
-      const totalSavingsGoals = savingsGoals?.reduce((sum, goal) => sum + (goal.target_amount || 0), 0) || 0;
-      const totalSaved = savingsTransactions?.reduce((sum, transaction) => sum + (transaction.amount || 0), 0) || 0;
+      const netByGoalId = new Map<string, number>();
+      (savingsTransactions || []).forEach((t: { savings_goal_id?: string; amount?: number; transaction_type?: string }) => {
+        if (!t.savings_goal_id) return;
+        const prev = netByGoalId.get(t.savings_goal_id) || 0;
+        const amt = Number(t.amount || 0);
+        const delta = t.transaction_type === 'withdrawal' ? -amt : amt;
+        netByGoalId.set(t.savings_goal_id, prev + delta);
+      });
+
+      const computedGoals = (savingsGoals || []).map((g: { id?: string; current_amount?: number; target_amount?: number; status?: string }) => {
+        const computedCurrent = g.id ? netByGoalId.get(g.id) : undefined;
+        const current = Math.max(0, Number(computedCurrent ?? g.current_amount ?? 0));
+        const target = Number(g.target_amount || 0);
+        const computedStatus = target > 0 && current >= target ? 'completed' : g.status;
+        return { ...g, current_amount: current, status: computedStatus };
+      });
+
+      const activeGoalRows = computedGoals.filter((g: { status?: string }) => g.status === 'active');
+      const completedGoals = computedGoals.filter((g: { status?: string }) => g.status === 'completed').length || 0;
+      const activeGoals = activeGoalRows.length || 0;
+      const totalSavingsGoals = activeGoalRows.reduce((sum: number, goal: { target_amount?: number }) => sum + (Number(goal.target_amount || 0)), 0);
+      const totalSaved = activeGoalRows.reduce((sum: number, goal: { current_amount?: number }) => sum + (Number(goal.current_amount || 0)), 0);
       const savingsProgress = totalSavingsGoals > 0 ? (totalSaved / totalSavingsGoals) * 100 : 0;
-      const activeGoals = savingsGoals?.filter(g => g.status === 'active').length || 0;
-      const completedGoals = savingsGoals?.filter(g => g.status === 'completed').length || 0;
 
       // Recent transactions (last 5)
       const recentTransactions = [
@@ -653,6 +696,16 @@ export default function DashboardPage() {
           amount: p.amount,
           date: p.payment_date || p.created_at
         })) || []),
+        ...(((recurringIncomeHistoryError as unknown as { message?: string } | null)?.message || '')
+          .toLowerCase()
+          .includes('recurring_income_history')
+          ? []
+          : (recurringIncomeHistory?.slice(0, 2).map((r: { amount?: number; received_date?: string }) => ({
+              type: 'payment',
+              description: 'Recurring income received',
+              amount: Number(r.amount || 0),
+              date: r.received_date || new Date().toISOString()
+            })) || [])),
         ...(expenses?.slice(0, 2).map(exp => ({
           type: 'expense',
           description: exp.description,
@@ -876,7 +929,7 @@ export default function DashboardPage() {
               <h3>{formatPKR(stats?.currentBalance || 0)}</h3>
               <p>
                 <DollarSign size={16} />
-                Current Balance (Paid)
+                Current Balance (after Savings)
               </p>
             </StatValue>
           </StatCard>
@@ -982,6 +1035,9 @@ export default function DashboardPage() {
                   {stats.savingsData.savingsProgress.toFixed(1)}% of goals achieved
                 </div>
               )}
+              <div style={{ marginTop: '6px', fontSize: '12px', color: 'rgba(255, 255, 255, 0.65)' }}>
+                Balance card subtracts savings from revenue - expenses
+              </div>
             </StatValue>
           </StatCard>
         </StatsGrid>

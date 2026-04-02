@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createSupabaseClient } from '@/lib/supabase'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import Button from '@/components/ui/Button'
 import styled from 'styled-components'
 import { 
   TrendingUp, 
   TrendingDown, 
-  Calendar,
   Download,
   FileText,
   BarChart3,
@@ -24,11 +24,11 @@ import {
   Eye,
   CreditCard
 } from 'lucide-react'
-import { format, subMonths, startOfMonth, endOfMonth, differenceInDays, parseISO } from 'date-fns'
+import { endOfMonth, endOfYear, format, startOfMonth, startOfYear, subMonths, subYears, differenceInDays, parseISO } from 'date-fns'
 
 // Styled Components
 const Container = styled.div`
-  padding: 2rem;
+  padding: 24px;
   max-width: 1400px;
   margin: 0 auto;
 `
@@ -36,146 +36,108 @@ const Container = styled.div`
 const Header = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
-  gap: 1rem;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 24px;
 
   h1 {
-    color: var(--heading-primary);
-    font-size: 2rem;
-    font-weight: 700;
+    color: #ffffff;
+    font-size: 26px;
+    font-weight: 800;
     margin: 0;
+    letter-spacing: -0.01em;
   }
 
   p {
-    color: var(--text-secondary);
-    margin: 0.5rem 0 0 0;
+    color: rgba(255, 255, 255, 0.65);
+    margin: 8px 0 0 0;
+    font-size: 14px;
+    line-height: 1.4;
   }
 `
 
 const HeaderActions = styled.div`
   display: flex;
-  gap: 1rem;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
 `
 
-const Button = styled.button<{ variant?: 'primary' | 'outline' | 'ghost' }>`
+const ControlsBar = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  font-weight: 500;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  border: 1px solid;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 18px;
 
-  ${props => props.variant === 'primary' && `
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-    color: white;
-    border-color: #ef4444;
-
-    &:hover {
-      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-    }
-  `}
-
-  ${props => props.variant === 'outline' && `
-    background: transparent;
-    color: var(--text-primary);
-    border-color: rgba(255, 255, 255, 0.2);
-
-    &:hover {
-      background: rgba(239, 68, 68, 0.1);
-      border-color: #ef4444;
-      color: #ef4444;
-    }
-  `}
-
-  ${props => props.variant === 'ghost' && `
-    background: transparent;
-    color: var(--text-secondary);
-    border-color: transparent;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--text-primary);
-    }
-  `}
+  @media (max-width: 900px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
 `
 
-const DateRangeSelector = styled.div`
+const ControlsLeft = styled.div`
   display: flex;
   align-items: center;
-  gap: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 1rem;
+  gap: 10px;
+  flex-wrap: wrap;
+`
+
+const Select = styled.select`
+  padding: 12px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  outline: none;
 
-  .date-inputs {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
+  &:focus {
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
   }
 
-  input {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    padding: 0.5rem;
-    color: var(--text-primary);
-    font-size: 0.875rem;
-
-    &:focus {
-      outline: none;
-      border-color: #ef4444;
-      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
-    }
+  option {
+    background: #101010;
+    color: #ffffff;
   }
+`
 
-  .quick-dates {
-    display: flex;
-    gap: 0.5rem;
-  }
+const DateInput = styled.input`
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  outline: none;
 
-  .quick-date-btn {
-    padding: 0.5rem 0.75rem;
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-
-    &:hover, &.active {
-      background: rgba(239, 68, 68, 0.1);
-      border-color: #ef4444;
-      color: #ef4444;
-    }
+  &:focus {
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
   }
 `
 
 const MetricsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  gap: 24px;
+  margin-bottom: 18px;
 `
 
-const MetricCard = styled.div<{ variant?: 'positive' | 'negative' | 'neutral' | 'warning' }>`
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+const MetricCard = styled.div.withConfig({
+  shouldForwardProp: (prop) => prop !== '$variant'
+})<{ $variant?: 'positive' | 'negative' | 'neutral' | 'warning' }>`
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
-  padding: 1.5rem;
+  padding: 18px;
   position: relative;
   overflow: hidden;
 
@@ -187,9 +149,9 @@ const MetricCard = styled.div<{ variant?: 'positive' | 'negative' | 'neutral' | 
     right: 0;
     height: 3px;
     background: ${props => 
-      props.variant === 'positive' ? 'linear-gradient(90deg, #10b981, #059669)' :
-      props.variant === 'negative' ? 'linear-gradient(90deg, #ef4444, #dc2626)' :
-      props.variant === 'warning' ? 'linear-gradient(90deg, #f59e0b, #d97706)' :
+      props.$variant === 'positive' ? 'linear-gradient(90deg, #10b981, #059669)' :
+      props.$variant === 'negative' ? 'linear-gradient(90deg, #ef4444, #dc2626)' :
+      props.$variant === 'warning' ? 'linear-gradient(90deg, #f59e0b, #d97706)' :
       'linear-gradient(90deg, #6366f1, #4f46e5)'
     };
   }
@@ -209,30 +171,30 @@ const MetricCard = styled.div<{ variant?: 'positive' | 'negative' | 'neutral' | 
     align-items: center;
     justify-content: center;
     background: ${props => 
-      props.variant === 'positive' ? 'rgba(16, 185, 129, 0.1)' :
-      props.variant === 'negative' ? 'rgba(239, 68, 68, 0.1)' :
-      props.variant === 'warning' ? 'rgba(245, 158, 11, 0.1)' :
+      props.$variant === 'positive' ? 'rgba(16, 185, 129, 0.14)' :
+      props.$variant === 'negative' ? 'rgba(239, 68, 68, 0.14)' :
+      props.$variant === 'warning' ? 'rgba(245, 158, 11, 0.14)' :
       'rgba(99, 102, 241, 0.1)'
     };
     color: ${props => 
-      props.variant === 'positive' ? '#10b981' :
-      props.variant === 'negative' ? '#ef4444' :
-      props.variant === 'warning' ? '#f59e0b' :
+      props.$variant === 'positive' ? '#34d399' :
+      props.$variant === 'negative' ? '#f87171' :
+      props.$variant === 'warning' ? '#fbbf24' :
       '#6366f1'
     };
   }
 
   .metric-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--heading-primary);
-    margin-bottom: 0.5rem;
+    font-size: 24px;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.95);
+    margin-bottom: 6px;
   }
 
   .metric-label {
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    margin-bottom: 0.5rem;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 13px;
+    margin-bottom: 8px;
   }
 
   .metric-change {
@@ -242,10 +204,10 @@ const MetricCard = styled.div<{ variant?: 'positive' | 'negative' | 'neutral' | 
     font-size: 0.75rem;
     font-weight: 500;
     color: ${props => 
-      props.variant === 'positive' ? '#10b981' :
-      props.variant === 'negative' ? '#ef4444' :
-      props.variant === 'warning' ? '#f59e0b' :
-      'var(--text-secondary)'
+      props.$variant === 'positive' ? '#34d399' :
+      props.$variant === 'negative' ? '#f87171' :
+      props.$variant === 'warning' ? '#fbbf24' :
+      'rgba(255,255,255,0.65)'
     };
   }
 
@@ -260,18 +222,18 @@ const MetricCard = styled.div<{ variant?: 'positive' | 'negative' | 'neutral' | 
 `
 
 const ReportSection = styled.div`
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
-  padding: 2rem;
-  margin-bottom: 2rem;
+  padding: 18px;
+  margin-bottom: 18px;
 
   h2 {
-    color: var(--heading-primary);
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-bottom: 1.5rem;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 16px;
+    font-weight: 900;
+    margin: 0 0 12px 0;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -432,6 +394,7 @@ export default function BusinessMetricsPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exportingPDF, setExportingPDF] = useState(false)
   const [metrics, setMetrics] = useState<BusinessMetrics>({
     revenue: { current: 0, previous: 0, growth: 0 },
     expenses: { current: 0, previous: 0, growth: 0 },
@@ -444,17 +407,59 @@ export default function BusinessMetricsPage() {
   // Initialize Supabase client
   const supabase = createSupabaseClient();
 
-  // Date range state
-  const [startDate, setStartDate] = useState(format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'));
-  const [activeQuickDate, setActiveQuickDate] = useState('last-month');
+  const [dateRange, setDateRange] = useState<'this_month' | 'last_month' | 'last_3_months' | 'last_6_months' | 'this_year' | 'last_year' | 'custom'>('last_6_months')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
 
-  const quickDateOptions = [
-    { key: 'this-month', label: 'This Month', start: startOfMonth(new Date()), end: endOfMonth(new Date()) },
-    { key: 'last-month', label: 'Last Month', start: startOfMonth(subMonths(new Date(), 1)), end: endOfMonth(subMonths(new Date(), 1)) },
-    { key: 'last-3-months', label: 'Last 3 Months', start: startOfMonth(subMonths(new Date(), 3)), end: endOfMonth(new Date()) },
-    { key: 'ytd', label: 'Year to Date', start: new Date(new Date().getFullYear(), 0, 1), end: new Date() },
-  ];
+  const period = useMemo(() => {
+    const now = new Date()
+    const toISO = (d: Date) => format(d, 'yyyy-MM-dd')
+
+    if (dateRange === 'this_month') {
+      const start = startOfMonth(now)
+      const end = endOfMonth(now)
+      return { startISO: toISO(start), endISO: toISO(end), label: 'This Month' }
+    }
+    if (dateRange === 'last_month') {
+      const start = startOfMonth(subMonths(now, 1))
+      const end = endOfMonth(start)
+      return { startISO: toISO(start), endISO: toISO(end), label: 'Last Month' }
+    }
+    if (dateRange === 'last_3_months') {
+      const start = startOfMonth(subMonths(now, 2))
+      const end = endOfMonth(now)
+      return { startISO: toISO(start), endISO: toISO(end), label: 'Last 3 Months' }
+    }
+    if (dateRange === 'last_6_months') {
+      const start = startOfMonth(subMonths(now, 5))
+      const end = endOfMonth(now)
+      return { startISO: toISO(start), endISO: toISO(end), label: 'Last 6 Months' }
+    }
+    if (dateRange === 'this_year') {
+      const start = startOfYear(now)
+      const end = endOfYear(now)
+      return { startISO: toISO(start), endISO: toISO(end), label: 'This Year' }
+    }
+    if (dateRange === 'last_year') {
+      const start = startOfYear(subYears(now, 1))
+      const end = endOfYear(start)
+      return { startISO: toISO(start), endISO: toISO(end), label: 'Last Year' }
+    }
+
+    const parsedFrom = customFrom ? new Date(customFrom) : startOfMonth(now)
+    const parsedTo = customTo ? new Date(customTo) : endOfMonth(now)
+    const s = parsedFrom <= parsedTo ? parsedFrom : parsedTo
+    const e = parsedFrom <= parsedTo ? parsedTo : parsedFrom
+    return { startISO: toISO(s), endISO: toISO(e), label: 'Custom' }
+  }, [customFrom, customTo, dateRange])
+
+  const [startDate, setStartDate] = useState(period.startISO);
+  const [endDate, setEndDate] = useState(period.endISO);
+
+  useEffect(() => {
+    setStartDate(period.startISO)
+    setEndDate(period.endISO)
+  }, [period.endISO, period.startISO])
 
   const fetchBusinessMetrics = useCallback(async () => {
     if (!user || !supabase) return;
@@ -620,17 +625,11 @@ export default function BusinessMetricsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, startDate, endDate]);
+  }, [endDate, startDate, supabase, user]);
 
   useEffect(() => {
     fetchBusinessMetrics();
-  }, [user, startDate, endDate, fetchBusinessMetrics]);
-
-  const handleQuickDateSelect = (option: typeof quickDateOptions[0]) => {
-    setStartDate(format(option.start, 'yyyy-MM-dd'));
-    setEndDate(format(option.end, 'yyyy-MM-dd'));
-    setActiveQuickDate(option.key);
-  };
+  }, [fetchBusinessMetrics]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PK', {
@@ -722,11 +721,12 @@ export default function BusinessMetricsPage() {
 
   const exportToPDF = async () => {
     try {
+      setExportingPDF(true)
       const { exportToPDF: exportPDF, formatCurrencyForExport } = await import('@/lib/exportUtils');
       
       const exportData = {
         title: 'Business Performance Metrics',
-        subtitle: 'Comprehensive business KPIs and performance indicators',
+        subtitle: period.label,
         dateRange: `${format(new Date(startDate), 'MMM dd, yyyy')} - ${format(new Date(endDate), 'MMM dd, yyyy')}`,
         data: getKPIs().map(item => ({
           'KPI': item.name,
@@ -745,13 +745,18 @@ export default function BusinessMetricsPage() {
         }
       };
 
-      await exportPDF('business-metrics-content', exportData, {
-        filename: `business-metrics-${format(new Date(), 'yyyy-MM-dd')}`,
-        orientation: 'landscape'
+      await exportPDF('business-metrics-export-content', exportData, {
+        filename: `business-metrics-${startDate}-to-${endDate}`,
+        orientation: 'landscape',
+        format: 'a4',
+        includeHeader: true,
+        includeFooter: true
       });
     } catch (error) {
       console.error('Error exporting to PDF:', error);
       setError('Failed to export PDF');
+    } finally {
+      setExportingPDF(false)
     }
   };
 
@@ -810,7 +815,7 @@ export default function BusinessMetricsPage() {
             <AlertCircle className="error-icon" size={48} />
             <h3>Error Loading Data</h3>
             <p>{error}</p>
-            <Button variant="primary" onClick={fetchBusinessMetrics}>
+            <Button onClick={fetchBusinessMetrics}>
               <RefreshCw size={16} />
               Try Again
             </Button>
@@ -829,7 +834,7 @@ export default function BusinessMetricsPage() {
               <p>Track key performance indicators and business health</p>
             </div>
             <HeaderActions>
-              <Button variant="outline" onClick={exportToPDF}>
+              <Button variant="outline" onClick={exportToPDF} disabled={exportingPDF}>
                 <Download size={16} />
                 Export PDF
               </Button>
@@ -837,45 +842,37 @@ export default function BusinessMetricsPage() {
                 <FileText size={16} />
                 Export Excel
               </Button>
-              <Button variant="primary" onClick={fetchBusinessMetrics}>
+              <Button onClick={fetchBusinessMetrics}>
                 <RefreshCw size={16} />
                 Refresh
               </Button>
             </HeaderActions>
           </Header>
 
-          <DateRangeSelector>
-            <Calendar size={20} />
-            <div className="date-inputs">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-              <span>to</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-            <div className="quick-dates">
-              {quickDateOptions.map((option) => (
-                <button
-                  key={option.key}
-                  className={`quick-date-btn ${activeQuickDate === option.key ? 'active' : ''}`}
-                  onClick={() => handleQuickDateSelect(option)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </DateRangeSelector>
+          <ControlsBar>
+            <ControlsLeft>
+              <Select value={dateRange} onChange={(e) => setDateRange(e.target.value as typeof dateRange)}>
+                <option value="this_month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="last_3_months">Last 3 Months</option>
+                <option value="last_6_months">Last 6 Months</option>
+                <option value="this_year">This Year</option>
+                <option value="last_year">Last Year</option>
+                <option value="custom">Custom</option>
+              </Select>
+              {dateRange === 'custom' && (
+                <>
+                  <DateInput type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+                  <DateInput type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+                </>
+              )}
+            </ControlsLeft>
+          </ControlsBar>
 
           <div id="business-metrics-content">
 
         <MetricsGrid>
-          <MetricCard variant={metrics.revenue.growth >= 0 ? 'positive' : 'negative'}>
+          <MetricCard $variant={metrics.revenue.growth >= 0 ? 'positive' : 'negative'}>
             <div className="metric-header">
               <div className="metric-icon">
                 <TrendingUp size={24} />
@@ -894,7 +891,7 @@ export default function BusinessMetricsPage() {
             </div>
           </MetricCard>
 
-          <MetricCard variant={metrics.profitMargin.change >= 0 ? 'positive' : 'negative'}>
+          <MetricCard $variant={metrics.profitMargin.change >= 0 ? 'positive' : 'negative'}>
             <div className="metric-header">
               <div className="metric-icon">
                 <Target size={24} />
@@ -913,7 +910,7 @@ export default function BusinessMetricsPage() {
             </div>
           </MetricCard>
 
-          <MetricCard variant="neutral">
+          <MetricCard $variant="neutral">
             <div className="metric-header">
               <div className="metric-icon">
                 <Users size={24} />
@@ -931,7 +928,7 @@ export default function BusinessMetricsPage() {
             </div>
           </MetricCard>
 
-          <MetricCard variant="warning">
+          <MetricCard $variant="warning">
             <div className="metric-header">
               <div className="metric-icon">
                 <CreditCard size={24} />
@@ -1069,6 +1066,93 @@ export default function BusinessMetricsPage() {
               ))}
           </KPITable>
         </ReportSection>
+        </div>
+
+        <div
+          id="business-metrics-export-content"
+          style={{
+            position: 'fixed',
+            left: '-10000px',
+            top: 0,
+            width: '1120px',
+            padding: '24px',
+            background: '#ffffff',
+            color: '#111827',
+            fontFamily:
+              'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: 900 }}>Business Performance Metrics</div>
+              <div style={{ marginTop: '6px', fontSize: '12px', color: '#6b7280' }}>{period.label}</div>
+              <div style={{ marginTop: '4px', fontSize: '12px', color: '#6b7280' }}>
+                {format(new Date(startDate), 'MMM dd, yyyy')} - {format(new Date(endDate), 'MMM dd, yyyy')}
+              </div>
+            </div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>{format(new Date(), 'MMM dd, yyyy')}</div>
+          </div>
+
+          <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '12px' }}>
+            {[
+              { label: 'Revenue', value: formatCurrency(metrics.revenue.current) },
+              { label: 'Expenses', value: formatCurrency(metrics.expenses.current) },
+              { label: 'Profit Margin', value: formatPercentage(metrics.profitMargin.current) },
+              { label: 'Clients', value: String(metrics.customerMetrics.totalClients) }
+            ].map((item) => (
+              <div key={item.label} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '12px', background: '#ffffff' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  {item.label}
+                </div>
+                <div style={{ marginTop: '6px', fontSize: '18px', fontWeight: 900 }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ height: '1px', background: '#e5e7eb', marginTop: '16px', marginBottom: '12px' }} />
+
+          <div style={{ fontSize: '13px', fontWeight: 900, marginBottom: '8px' }}>KPI Summary</div>
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#f9fafb' }}>
+                  {['KPI', 'Current', 'Target', 'Status', 'Category'].map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        textAlign: h === 'KPI' || h === 'Category' ? 'left' : 'right',
+                        padding: '10px 12px',
+                        fontSize: '11px',
+                        letterSpacing: '0.04em',
+                        textTransform: 'uppercase',
+                        color: '#6b7280',
+                        borderBottom: '1px solid #e5e7eb'
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {getKPIs().map((kpi, idx) => {
+                  const statusLabel = kpi.status === 'positive' ? 'On track' : kpi.status === 'warning' ? 'Watch' : kpi.status === 'negative' ? 'Needs work' : 'Info'
+                  const statusColor = kpi.status === 'positive' ? '#16a34a' : kpi.status === 'warning' ? '#d97706' : kpi.status === 'negative' ? '#dc2626' : '#6b7280'
+                  return (
+                    <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                      <td style={{ padding: '10px 12px', fontSize: '13px' }}>{kpi.name}</td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }}>{kpi.value}</td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }}>{kpi.target}</td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap', color: statusColor, fontWeight: 800 }}>
+                        {statusLabel}
+                      </td>
+                      <td style={{ padding: '10px 12px', fontSize: '13px' }}>{kpi.category}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </Container>
     </DashboardLayout>

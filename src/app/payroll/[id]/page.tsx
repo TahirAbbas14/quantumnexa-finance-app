@@ -273,6 +273,8 @@ export default function PayrollDetailPage() {
   }, [payroll]);
 
   const [form, setForm] = useState({
+    pay_period_start: '',
+    pay_period_end: '',
     pay_date: '',
     payment_method: 'bank_transfer',
     base_salary: 0,
@@ -351,6 +353,8 @@ export default function PayrollDetailPage() {
         setPayroll(record);
 
         setForm({
+          pay_period_start: record.pay_period_start,
+          pay_period_end: record.pay_period_end,
           pay_date: record.pay_date,
           payment_method: record.payment_method || 'bank_transfer',
           base_salary: record.base_salary || 0,
@@ -574,10 +578,9 @@ export default function PayrollDetailPage() {
         const marker = payroll.payment_reference || '';
         const match = marker.match(/acct:([0-9a-fA-F-]{36})/);
         const accountId = match?.[1] || payFromAccountId;
-        if (!accountId) {
-          throw new Error('Select an account, then click Reverse');
+        if (accountId) {
+          await applyAccountDelta(accountId, Number(payroll.net_salary || 0));
         }
-        await applyAccountDelta(accountId, Number(payroll.net_salary || 0));
       }
 
       await deletePayrollExpense();
@@ -707,10 +710,9 @@ export default function PayrollDetailPage() {
           const marker = payroll.payment_reference || '';
           const match = marker.match(/acct:([0-9a-fA-F-]{36})/);
           const accountId = match?.[1] || payFromAccountId;
-          if (!accountId) {
-            throw new Error('Select an account, then click Delete to restore balance');
+          if (accountId) {
+            await applyAccountDelta(accountId, Number(payroll.net_salary || 0));
           }
-          await applyAccountDelta(accountId, Number(payroll.net_salary || 0));
         }
       }
 
@@ -797,6 +799,8 @@ export default function PayrollDetailPage() {
       const { error: updateError } = await supabase
         .from('payroll')
         .update({
+          pay_period_start: form.pay_period_start,
+          pay_period_end: form.pay_period_end,
           pay_date: form.pay_date,
           payment_method: form.payment_method,
           base_salary: Number(form.base_salary || 0),
@@ -820,6 +824,8 @@ export default function PayrollDetailPage() {
         if (!prev) return prev;
         return {
           ...prev,
+          pay_period_start: form.pay_period_start,
+          pay_period_end: form.pay_period_end,
           pay_date: form.pay_date,
           payment_method: form.payment_method,
           base_salary: Number(form.base_salary || 0),
@@ -874,16 +880,18 @@ export default function PayrollDetailPage() {
       const supabase = createSupabaseClient();
       if (!supabase) throw new Error('Supabase client is not initialized');
 
-      if (!payFromAccountId) {
-        throw new Error('Please select an account to pay from');
+      if (payFromAccountId) {
+        await ensurePayrollAccountDebit(payFromAccountId);
       }
-
-      await ensurePayrollAccountDebit(payFromAccountId);
       await ensurePayrollExpense();
 
       const { error: updateError } = await supabase
         .from('payroll')
-        .update({ status: 'paid', payment_reference: `acct:${payFromAccountId}`, updated_at: new Date().toISOString() })
+        .update({
+          status: 'paid',
+          payment_reference: payFromAccountId ? `acct:${payFromAccountId}` : null,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', payrollId)
         .eq('user_id', user.id);
 
@@ -934,7 +942,7 @@ export default function PayrollDetailPage() {
             <Title>Payroll Details</Title>
             <Subtitle>
               {employeeName} • {payroll.employees?.department || 'Unknown'} •{' '}
-              {format(parseISO(payroll.pay_period_start), 'MMM dd')} - {format(parseISO(payroll.pay_period_end), 'MMM dd, yyyy')}
+              {format(parseISO(payroll.pay_period_start), 'do MMM')} - {format(parseISO(payroll.pay_period_end), 'do MMM, yyyy')}
             </Subtitle>
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -949,18 +957,6 @@ export default function PayrollDetailPage() {
             )}
             {payroll.status === 'processed' && (
               <>
-                <Select
-                  value={payFromAccountId}
-                  onChange={(e) => setPayFromAccountId(e.target.value)}
-                  style={{ minWidth: '220px' }}
-                >
-                  <option value="">Select account</option>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({formatPKR(a.balance)})
-                    </option>
-                  ))}
-                </Select>
                 <Button onClick={markPaid} disabled={processing}>
                   {processing ? 'Saving...' : 'Mark Paid'}
                 </Button>
@@ -971,18 +967,6 @@ export default function PayrollDetailPage() {
             )}
             {payroll.status === 'paid' && (
               <>
-                <Select
-                  value={payFromAccountId}
-                  onChange={(e) => setPayFromAccountId(e.target.value)}
-                  style={{ minWidth: '220px' }}
-                >
-                  <option value="">Select account</option>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({formatPKR(a.balance)})
-                    </option>
-                  ))}
-                </Select>
                 <Button onClick={reversePayrollPayment} disabled={processing}>
                   {processing ? 'Saving...' : 'Reverse'}
                 </Button>
@@ -1016,7 +1000,13 @@ export default function PayrollDetailPage() {
             </Stat>
             <Stat>
               <StatLabel>Pay Date</StatLabel>
-              <StatValue>{format(parseISO(payroll.pay_date), 'MMM dd, yyyy')}</StatValue>
+              <StatValue>{format(parseISO(payroll.pay_date), 'do MMM, yyyy')}</StatValue>
+            </Stat>
+            <Stat>
+              <StatLabel>Pay Period</StatLabel>
+              <StatValue>
+                {format(parseISO(payroll.pay_period_start), 'do MMM')} - {format(parseISO(payroll.pay_period_end), 'do MMM, yyyy')}
+              </StatValue>
             </Stat>
           </Grid>
         </Card>
@@ -1060,6 +1050,24 @@ export default function PayrollDetailPage() {
             </Button>
           </div>
           <FieldGrid>
+            <Field>
+              <Label>Period Start</Label>
+              <Input
+                type="date"
+                value={(form.pay_period_start || '').slice(0, 10)}
+                onChange={(e) => setForm((prev) => ({ ...prev, pay_period_start: e.target.value }))}
+                disabled={payroll.status !== 'draft'}
+              />
+            </Field>
+            <Field>
+              <Label>Period End</Label>
+              <Input
+                type="date"
+                value={(form.pay_period_end || '').slice(0, 10)}
+                onChange={(e) => setForm((prev) => ({ ...prev, pay_period_end: e.target.value }))}
+                disabled={payroll.status !== 'draft'}
+              />
+            </Field>
             <Field>
               <Label>Pay Date</Label>
               <Input

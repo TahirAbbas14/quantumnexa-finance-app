@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import DashboardLayout from '@/components/layout/DashboardLayout'
@@ -9,17 +9,14 @@ import {
   TrendingUp, 
   TrendingDown, 
   DollarSign, 
-  Calendar,
   Download,
   FileText,
   BarChart3,
-  PieChart,
-  Filter,
   RefreshCw,
   Loader2,
   AlertCircle
 } from 'lucide-react'
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
+import { endOfMonth, endOfYear, format, startOfMonth, startOfYear, subMonths, subYears } from 'date-fns'
 
 // Styled Components
 const Container = styled.div`
@@ -104,57 +101,63 @@ const Button = styled.button<{ variant?: 'primary' | 'outline' | 'ghost' }>`
   `}
 `
 
-const DateRangeSelector = styled.div`
+const ControlsBar = styled.div`
   display: flex;
   align-items: center;
-  gap: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 1rem;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 18px;
+
+  @media (max-width: 900px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+`
+
+const ControlsLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+`
+
+const Select = styled.select`
+  padding: 12px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  outline: none;
 
-  .date-inputs {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
+  &:focus {
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
   }
 
-  input {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    padding: 0.5rem;
-    color: var(--text-primary);
-    font-size: 0.875rem;
-
-    &:focus {
-      outline: none;
-      border-color: #ef4444;
-      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
-    }
+  option {
+    background: #101010;
+    color: #ffffff;
   }
+`
 
-  .quick-dates {
-    display: flex;
-    gap: 0.5rem;
-  }
+const DateInput = styled.input`
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  outline: none;
 
-  .quick-date-btn {
-    padding: 0.5rem 0.75rem;
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-
-    &:hover, &.active {
-      background: rgba(239, 68, 68, 0.1);
-      border-color: #ef4444;
-      color: #ef4444;
-    }
+  &:focus {
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
   }
 `
 
@@ -379,6 +382,7 @@ export default function ProfitLossPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exportingPDF, setExportingPDF] = useState(false)
   const [plData, setPLData] = useState<PLData[]>([]);
   const [summary, setSummary] = useState<PLSummary>({
     totalRevenue: 0,
@@ -388,23 +392,63 @@ export default function ProfitLossPage() {
     profitMargin: 0
   });
 
-  // Date range state
   const [startDate, setStartDate] = useState(format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'));
-  const [activeQuickDate, setActiveQuickDate] = useState('last-month');
+  const [dateRange, setDateRange] = useState<'this_month' | 'last_month' | 'last_3_months' | 'last_6_months' | 'this_year' | 'last_year' | 'custom'>('last_6_months')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
 
-  const quickDateOptions = [
-    { key: 'this-month', label: 'This Month', start: startOfMonth(new Date()), end: endOfMonth(new Date()) },
-    { key: 'last-month', label: 'Last Month', start: startOfMonth(subMonths(new Date(), 1)), end: endOfMonth(subMonths(new Date(), 1)) },
-    { key: 'last-3-months', label: 'Last 3 Months', start: startOfMonth(subMonths(new Date(), 3)), end: endOfMonth(new Date()) },
-    { key: 'ytd', label: 'Year to Date', start: new Date(new Date().getFullYear(), 0, 1), end: new Date() },
-  ];
+  const period = useMemo(() => {
+    const now = new Date()
+    const toISO = (d: Date) => format(d, 'yyyy-MM-dd')
 
-  const fetchPLData = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    setError(null);
+    if (dateRange === 'this_month') {
+      const start = startOfMonth(now)
+      const end = endOfMonth(now)
+      return { startISO: toISO(start), endISO: toISO(end), label: 'This Month' }
+    }
+    if (dateRange === 'last_month') {
+      const start = startOfMonth(subMonths(now, 1))
+      const end = endOfMonth(start)
+      return { startISO: toISO(start), endISO: toISO(end), label: 'Last Month' }
+    }
+    if (dateRange === 'last_3_months') {
+      const start = startOfMonth(subMonths(now, 2))
+      const end = endOfMonth(now)
+      return { startISO: toISO(start), endISO: toISO(end), label: 'Last 3 Months' }
+    }
+    if (dateRange === 'last_6_months') {
+      const start = startOfMonth(subMonths(now, 5))
+      const end = endOfMonth(now)
+      return { startISO: toISO(start), endISO: toISO(end), label: 'Last 6 Months' }
+    }
+    if (dateRange === 'this_year') {
+      const start = startOfYear(now)
+      const end = endOfYear(now)
+      return { startISO: toISO(start), endISO: toISO(end), label: 'This Year' }
+    }
+    if (dateRange === 'last_year') {
+      const start = startOfYear(subYears(now, 1))
+      const end = endOfYear(start)
+      return { startISO: toISO(start), endISO: toISO(end), label: 'Last Year' }
+    }
+    const parsedFrom = customFrom ? new Date(customFrom) : startOfMonth(now)
+    const parsedTo = customTo ? new Date(customTo) : endOfMonth(now)
+    const s = parsedFrom <= parsedTo ? parsedFrom : parsedTo
+    const e = parsedFrom <= parsedTo ? parsedTo : parsedFrom
+    return { startISO: toISO(s), endISO: toISO(e), label: 'Custom' }
+  }, [customFrom, customTo, dateRange])
+
+  useEffect(() => {
+    setStartDate(period.startISO)
+    setEndDate(period.endISO)
+  }, [period.endISO, period.startISO])
+
+  const fetchPLData = useCallback(async () => {
+    if (!user) return
+
+    setLoading(true)
+    setError(null)
 
     try {
       // Fetch revenue data from payments (actual cash inflows)
@@ -419,7 +463,7 @@ export default function ProfitLossPage() {
         .gte('payment_date', startDate)
         .lte('payment_date', endDate);
 
-      if (paymentError) throw paymentError;
+      if (paymentError) throw paymentError
 
       // Fetch expense data
       const { data: expenseData, error: expenseError } = await supabase!
@@ -429,22 +473,22 @@ export default function ProfitLossPage() {
         .gte('date', startDate)
         .lte('date', endDate);
 
-      if (expenseError) throw expenseError;
+      if (expenseError) throw expenseError
 
       // Calculate revenue from actual payments
-      const totalRevenue = paymentData?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
+      const totalRevenue = paymentData?.reduce((sum, payment) => sum + payment.amount, 0) || 0
 
       // Group expenses by category
       const expensesByCategory = expenseData?.reduce((acc, expense) => {
         const category = expense.category || 'Other Expenses';
         acc[category] = (acc[category] || 0) + expense.amount;
         return acc;
-      }, {} as Record<string, number>) || {};
+      }, {} as Record<string, number>) || {}
 
-      const totalExpenses = Object.values(expensesByCategory).reduce((sum, amount) => sum + amount, 0);
+      const totalExpenses = Object.values(expensesByCategory).reduce((sum, amount) => sum + amount, 0)
 
       // Build P&L data structure
-      const plItems: PLData[] = [];
+      const plItems: PLData[] = []
 
       // Revenue section
       if (totalRevenue > 0) {
@@ -470,12 +514,12 @@ export default function ProfitLossPage() {
         });
       });
 
-      setPLData(plItems);
+      setPLData(plItems)
 
       // Calculate summary
-      const grossProfit = totalRevenue;
-      const netProfit = totalRevenue - totalExpenses;
-      const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+      const grossProfit = totalRevenue
+      const netProfit = totalRevenue - totalExpenses
+      const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
 
       setSummary({
         totalRevenue,
@@ -483,25 +527,23 @@ export default function ProfitLossPage() {
         grossProfit,
         netProfit,
         profitMargin
-      });
+      })
 
     } catch (err) {
-      console.error('Error fetching P&L data:', err);
-      setError('Failed to load profit & loss data');
+      console.error('Error fetching P&L data:', err)
+      setError('Failed to load profit & loss data')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }, [endDate, startDate, user])
 
   useEffect(() => {
-    fetchPLData();
-  }, [user, startDate, endDate]);
+    fetchPLData()
+  }, [fetchPLData])
 
-  const handleQuickDateSelect = (option: typeof quickDateOptions[0]) => {
-    setStartDate(format(option.start, 'yyyy-MM-dd'));
-    setEndDate(format(option.end, 'yyyy-MM-dd'));
-    setActiveQuickDate(option.key);
-  };
+  const handleRangeChange = (value: typeof dateRange) => {
+    setDateRange(value)
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PK', {
@@ -518,11 +560,12 @@ export default function ProfitLossPage() {
 
   const exportToPDF = async () => {
     try {
+      setExportingPDF(true)
       const { exportToPDF: exportPDF, formatCurrencyForExport, formatPercentageForExport } = await import('@/lib/exportUtils');
       
       const exportData = {
         title: 'Profit & Loss Statement',
-        subtitle: 'Detailed revenue and expense breakdown',
+        subtitle: period.label,
         dateRange: `${format(new Date(startDate), 'MMM dd, yyyy')} - ${format(new Date(endDate), 'MMM dd, yyyy')}`,
         data: plData.map(item => ({
           'Line Item': item.lineItem,
@@ -539,13 +582,18 @@ export default function ProfitLossPage() {
         }
       };
 
-      await exportPDF('profit-loss-content', exportData, {
-        filename: `profit-loss-statement-${format(new Date(), 'yyyy-MM-dd')}`,
-        orientation: 'portrait'
+      await exportPDF('profit-loss-export-content', exportData, {
+        filename: `profit-loss-statement-${startDate}-to-${endDate}`,
+        orientation: 'portrait',
+        format: 'a4',
+        includeHeader: true,
+        includeFooter: true
       });
     } catch (error) {
       console.error('Error exporting to PDF:', error);
       setError('Failed to export PDF');
+    } finally {
+      setExportingPDF(false)
     }
   };
 
@@ -621,7 +669,7 @@ export default function ProfitLossPage() {
               <p>Detailed revenue and expense breakdown</p>
             </div>
             <HeaderActions>
-              <Button variant="outline" onClick={exportToPDF}>
+              <Button variant="outline" onClick={exportToPDF} disabled={exportingPDF}>
                 <Download size={16} />
                 Export PDF
               </Button>
@@ -636,33 +684,25 @@ export default function ProfitLossPage() {
             </HeaderActions>
           </Header>
 
-          <DateRangeSelector>
-            <Calendar size={20} />
-            <div className="date-inputs">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-              <span>to</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-            <div className="quick-dates">
-              {quickDateOptions.map((option) => (
-                <button
-                  key={option.key}
-                  className={`quick-date-btn ${activeQuickDate === option.key ? 'active' : ''}`}
-                  onClick={() => handleQuickDateSelect(option)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </DateRangeSelector>
+          <ControlsBar>
+            <ControlsLeft>
+              <Select value={dateRange} onChange={(e) => handleRangeChange(e.target.value as typeof dateRange)}>
+                <option value="this_month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="last_3_months">Last 3 Months</option>
+                <option value="last_6_months">Last 6 Months</option>
+                <option value="this_year">This Year</option>
+                <option value="last_year">Last Year</option>
+                <option value="custom">Custom</option>
+              </Select>
+              {dateRange === 'custom' && (
+                <>
+                  <DateInput type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+                  <DateInput type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+                </>
+              )}
+            </ControlsLeft>
+          </ControlsBar>
 
           <div id="profit-loss-content">
 
@@ -766,7 +806,9 @@ export default function ProfitLossPage() {
             <div className="table-row total-row">
               <div>Total Operating Expenses</div>
               <div className="amount negative">({formatCurrency(summary.totalExpenses)})</div>
-              <div className="percentage">({formatPercentage(summary.totalExpenses / summary.totalRevenue * 100)})</div>
+              <div className="percentage">
+                {summary.totalRevenue > 0 ? `(${formatPercentage((summary.totalExpenses / summary.totalRevenue) * 100)})` : '—'}
+              </div>
             </div>
 
             {/* Net Profit */}
@@ -779,6 +821,155 @@ export default function ProfitLossPage() {
             </div>
           </PLTable>
           </ReportSection>
+        </div>
+
+        <div
+          id="profit-loss-export-content"
+          style={{
+            position: 'fixed',
+            left: '-10000px',
+            top: 0,
+            width: '820px',
+            padding: '24px',
+            background: '#ffffff',
+            color: '#111827',
+            fontFamily:
+              'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: 900 }}>Profit &amp; Loss Statement</div>
+              <div style={{ marginTop: '6px', fontSize: '12px', color: '#6b7280' }}>{period.label}</div>
+              <div style={{ marginTop: '4px', fontSize: '12px', color: '#6b7280' }}>
+                {format(new Date(startDate), 'MMM dd, yyyy')} - {format(new Date(endDate), 'MMM dd, yyyy')}
+              </div>
+            </div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>{format(new Date(), 'MMM dd, yyyy')}</div>
+          </div>
+
+          <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
+            {[
+              { label: 'Total Revenue', value: formatCurrency(summary.totalRevenue) },
+              { label: 'Total Expenses', value: formatCurrency(summary.totalExpenses) },
+              { label: 'Net Profit', value: formatCurrency(summary.netProfit) },
+              { label: 'Profit Margin', value: `${summary.profitMargin.toFixed(2)}%` }
+            ].map((item) => (
+              <div key={item.label} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '12px', background: '#ffffff' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  {item.label}
+                </div>
+                <div style={{ marginTop: '6px', fontSize: '18px', fontWeight: 900 }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ height: '1px', background: '#e5e7eb', marginTop: '16px', marginBottom: '12px' }} />
+
+          <div style={{ fontSize: '13px', fontWeight: 900, marginBottom: '8px' }}>Statement</div>
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#f9fafb' }}>
+                  {['Line Item', 'Amount', '% of Revenue'].map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        textAlign: h === 'Line Item' ? 'left' : 'right',
+                        padding: '10px 12px',
+                        fontSize: '11px',
+                        letterSpacing: '0.04em',
+                        textTransform: 'uppercase',
+                        color: '#6b7280',
+                        borderBottom: '1px solid #e5e7eb'
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ background: '#ffffff' }}>
+                  <td style={{ padding: '10px 12px', fontWeight: 900 }}>Revenue</td>
+                  <td style={{ padding: '10px 12px' }} />
+                  <td style={{ padding: '10px 12px' }} />
+                </tr>
+
+                {plData.filter((i) => i.category === 'revenue').length === 0 ? (
+                  <tr>
+                    <td style={{ padding: '10px 12px', fontSize: '13px', color: '#6b7280' }} colSpan={3}>
+                      No revenue in selected period.
+                    </td>
+                  </tr>
+                ) : (
+                  plData
+                    .filter((i) => i.category === 'revenue')
+                    .map((i, idx) => (
+                      <tr key={`rev-${idx}`} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '10px 12px', fontSize: '13px' }}>{i.lineItem}</td>
+                        <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(i.amount)}</td>
+                        <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatPercentage(i.percentage)}</td>
+                      </tr>
+                    ))
+                )}
+
+                <tr style={{ background: '#f9fafb', borderTop: '1px solid #e5e7eb' }}>
+                  <td style={{ padding: '10px 12px', fontWeight: 900 }}>Total Revenue</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 900, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(summary.totalRevenue)}</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 900, textAlign: 'right', whiteSpace: 'nowrap' }}>100.0%</td>
+                </tr>
+
+                <tr style={{ background: '#ffffff' }}>
+                  <td style={{ padding: '10px 12px', fontWeight: 900 }}>Operating Expenses</td>
+                  <td style={{ padding: '10px 12px' }} />
+                  <td style={{ padding: '10px 12px' }} />
+                </tr>
+
+                {plData.filter((i) => i.category === 'operating_expenses').length === 0 ? (
+                  <tr>
+                    <td style={{ padding: '10px 12px', fontSize: '13px', color: '#6b7280' }} colSpan={3}>
+                      No expenses in selected period.
+                    </td>
+                  </tr>
+                ) : (
+                  plData
+                    .filter((i) => i.category === 'operating_expenses')
+                    .map((i, idx) => (
+                      <tr key={`exp-${idx}`} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                        <td style={{ padding: '10px 12px', fontSize: '13px' }}>{i.lineItem}</td>
+                        <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          ({formatCurrency(i.amount)})
+                        </td>
+                        <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {summary.totalRevenue > 0 ? `(${formatPercentage(i.percentage)})` : '—'}
+                        </td>
+                      </tr>
+                    ))
+                )}
+
+                <tr style={{ background: '#f9fafb', borderTop: '1px solid #e5e7eb' }}>
+                  <td style={{ padding: '10px 12px', fontWeight: 900 }}>Total Operating Expenses</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 900, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    ({formatCurrency(summary.totalExpenses)})
+                  </td>
+                  <td style={{ padding: '10px 12px', fontWeight: 900, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {summary.totalRevenue > 0 ? `(${formatPercentage((summary.totalExpenses / summary.totalRevenue) * 100)})` : '—'}
+                  </td>
+                </tr>
+
+                <tr style={{ background: '#111827' }}>
+                  <td style={{ padding: '12px', fontWeight: 900, color: '#ffffff' }}>Net Profit</td>
+                  <td style={{ padding: '12px', fontWeight: 900, textAlign: 'right', color: '#ffffff', whiteSpace: 'nowrap' }}>
+                    {summary.netProfit >= 0 ? formatCurrency(summary.netProfit) : `(${formatCurrency(Math.abs(summary.netProfit))})`}
+                  </td>
+                  <td style={{ padding: '12px', fontWeight: 900, textAlign: 'right', color: '#ffffff', whiteSpace: 'nowrap' }}>
+                    {formatPercentage(summary.profitMargin)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </Container>
     </DashboardLayout>
